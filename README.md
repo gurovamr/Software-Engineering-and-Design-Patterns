@@ -4,7 +4,7 @@
 
 # Software Engineering and Design Patterns
 
-A project is dedicated ..... 
+A project is dedicated for ..... 
 
 
 
@@ -18,10 +18,8 @@ A project is dedicated .....
 - [Getting Started](#getting-started)
 - [Usage](#usage)
 - [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [Resources](#resources)
+- [Autors](#Autors)
 - [License](#license)
-- [Contact](#contact)
 
 ## About
 
@@ -30,9 +28,8 @@ This repository is the final project from the ZHAW course of software engineerin
 Topics that will be covered include:
 
 - Object-oriented design principles
-- Creational, structural and behavioral design patterns
-- Practical architecture decisions and trade-offs
-- Refactoring and code quality practices
+- ???
+- ??? 
 
 [Back to top](#readme-top)
 
@@ -45,7 +42,7 @@ Topics that will be covered include:
 
 ## Project Structure
 
-Planned structure (can evolve as the repository grows):
+Planned structure (no structure discussed for now):
 
 ```text
 Software-Engineering-and-Design-Patterns/
@@ -110,8 +107,5 @@ cd Software-Engineering-and-Design-Patterns
 
 ## License
 ?
-
-[Back to top](#readme-top)
-
 
 [Back to top](#readme-top)
