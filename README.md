@@ -12,14 +12,18 @@ A project is dedicated for .....
 
 ## Table of Contents
 
-- [About](#about)
-- [Goals](#goals)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-- [Usage](#usage)
-- [Roadmap](#roadmap)
-- [Autors](#Autors)
-- [License](#license)
+- [Software Engineering and Design Patterns](#software-engineering-and-design-patterns)
+	- [Table of Contents](#table-of-contents)
+	- [About](#about)
+	- [Goals](#goals)
+	- [Project Structure](#project-structure)
+	- [Getting Started](#getting-started)
+		- [Prerequisites](#prerequisites)
+		- [Installation](#installation)
+	- [Usage](#usage)
+	- [Roadmap](#roadmap)
+		- [Authors](#authors)
+	- [License](#license)
 
 ## About
 
@@ -80,6 +84,8 @@ cd Software-Engineering-and-Design-Patterns
 
 ## Usage
 
+Run download_data.py to download the data from kaggle
+Run test.ipynb to Load data and visualize the results from merged files
 .... 
 
 [Back to top](#readme-top)

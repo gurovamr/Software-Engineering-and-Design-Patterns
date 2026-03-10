@@ -1,0 +1,8 @@
+name: SEDP
+channels:
+  - defaults
+dependencies:
+  - python=3.14.3
+  - pip=26.0.1
+  - pip:
+      - kagglehub==1.0.0
