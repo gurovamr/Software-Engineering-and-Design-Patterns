@@ -4,7 +4,7 @@
 
 # Software Engineering and Design Patterns
 
-A project is dedicated for ..... 
+This is the group project for the course of *Software Engineering and Design Patterns*, for the Spring 2026 semester of the ZHAW Master in Life Sciences.
 
 
 
@@ -107,11 +107,13 @@ Run test.ipynb to Load data and visualize the results from merged files
 	- GitHub: [@Lagpi](https://github.com/Lagpi)
 - **Kai Aebli**
 	- GitHub: [@aeblik](https://github.com/aeblik)
-
+- **Spyridon Margomenos**
+	- Github: [@the-nerd-sloth](https://github.com/the-nerd-sloth)
 
 [Back to top](#readme-top)
 
 ## License
-?
+Distributed under The Unlicense license.
+For more information see `LICENSE`.
 
 [Back to top](#readme-top)
