@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Environments
+.env/
+.conda/
+env/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data
+data/
+
+# FastF1 cache
+cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/

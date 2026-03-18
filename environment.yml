@@ -1,8 +1,17 @@
 name: SEDP
 channels:
+  - conda-forge
   - defaults
+
 dependencies:
-  - python=3.14.3
-  - pip=26.0.1
+  - python=3.12
+  - pip
+  - pandas
+  - numpy
+  - matplotlib
+  - jupyter
+  - notebook
+  - ipykernel
+
   - pip:
-      - kagglehub==1.0.0
+      - fastf1
