@@ -7,7 +7,11 @@ project_root = Path(__file__).resolve().parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from src.data_loading import load_f1_data
+from src.data_loading import (
+    load_f1_data,
+    get_events_with_available_laps,
+    get_schedule_events,
+)
 from src.telemetry_metrics import (
     get_available_drivers,
     get_driver_laps,
@@ -41,12 +45,50 @@ def cached_load_bundle(year: int, event: str, session_code: str, cache_dir: str)
     )
 
 
+@st.cache_data(show_spinner=False)
+def cached_available_events(year: int, session_code: str, cache_dir: str):
+    return get_events_with_available_laps(
+        year=year,
+        session_code=session_code,
+        cache_dir=cache_dir
+    )
+
+
+@st.cache_data(show_spinner=False)
+def cached_schedule_events(year: int):
+    return get_schedule_events(year)
+
+
 with st.sidebar:
     st.header("Session Selection")
     year = st.number_input("Year", min_value=2018, max_value=2026, value=2024, step=1)
-    event = st.text_input("Race / Event", value="Monza")
     session_code = st.selectbox("Session", SESSION_OPTIONS, index=1)
     cache_dir = st.text_input("Cache directory", value="cache")
+
+with st.spinner("Checking which events have lap data for this year/session..."):
+    available_events = cached_available_events(year, session_code, cache_dir)
+schedule_events = cached_schedule_events(year)
+
+with st.sidebar:
+    if available_events:
+        default_event = "Monza" if "Monza" in available_events else available_events[0]
+        event = st.selectbox(
+            "Race / Event",
+            options=available_events,
+            index=available_events.index(default_event)
+        )
+        st.caption(f"{len(available_events)} events found with lap data.")
+    elif schedule_events:
+        default_event = "Monza" if "Monza" in schedule_events else schedule_events[0]
+        event = st.selectbox(
+            "Race / Event",
+            options=schedule_events,
+            index=schedule_events.index(default_event)
+        )
+        st.caption("No events could be verified with lap telemetry right now. Showing full race schedule.")
+    else:
+        st.warning("No events with lap data were detected. Use manual input.")
+        event = st.text_input("Race / Event", value="Monza")
 
 bundle = cached_load_bundle(year, event, session_code, cache_dir)
 

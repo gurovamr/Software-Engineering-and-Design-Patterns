@@ -84,8 +84,7 @@ cd Software-Engineering-and-Design-Patterns
 
 ## Usage
 
-Run download_data.py to download the data from kaggle
-Run test.ipynb to Load data and visualize the results from merged files
+python -m streamlit run app.py
 .... 
 
 [Back to top](#readme-top)

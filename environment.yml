@@ -6,14 +6,16 @@ channels:
 dependencies:
   - python=3.12
   - pip
-  - pandas
-  - numpy
-  - matplotlib
+  - pandas>=2.2,<2.4
+  - numpy>=1.26,<3
+  - matplotlib>=3.8,<4
   - jupyter
   - notebook
   - ipykernel
-  - streamlit
-  - plotly
+  - streamlit>=1.40,<2
+  - plotly>=5,<7
+  - pyarrow
+  - protobuf>=4,<6
 
   - pip:
-      - fastf1
+      - fastf1>=3.8,<4

@@ -137,7 +137,10 @@ class FastF1Source(TelemetrySource):
 
     @staticmethod
     def _prepare_results(session) -> pd.DataFrame:
-        results = session.results.copy()
+        try:
+            results = session.results.copy()
+        except Exception:
+            return pd.DataFrame()
 
         # Normalize some useful names for downstream plotting / API use
         rename_map = {
@@ -157,7 +160,10 @@ class FastF1Source(TelemetrySource):
 
     @staticmethod
     def _prepare_laps(session) -> pd.DataFrame:
-        laps = session.laps.copy()
+        try:
+            laps = session.laps.copy()
+        except Exception:
+            return pd.DataFrame()
 
         # Timedelta columns -> seconds where useful
         timedelta_cols = [
@@ -184,13 +190,18 @@ class FastF1Source(TelemetrySource):
         if laps_df.empty:
             return pd.DataFrame()
 
+        try:
+            session_laps = session.laps
+        except Exception:
+            return pd.DataFrame()
+
         available_drivers = sorted(laps_df["Driver"].dropna().unique().tolist())
         selected_drivers = list(drivers) if drivers else available_drivers
 
         telemetry_frames: list[pd.DataFrame] = []
 
         for driver in selected_drivers:
-            driver_laps = session.laps[session.laps["Driver"] == driver]
+            driver_laps = session_laps[session_laps["Driver"] == driver]
             if driver_laps.empty:
                 continue
 
@@ -306,6 +317,62 @@ def load_f1_data(
         add_distance=add_distance
     )
     return source.load_bundle(request)
+
+
+def get_events_with_available_laps(
+    year: int,
+    session_code: str,
+    *,
+    cache_dir: str | Path = "cache"
+) -> list[str]:
+    """
+    Return event names for which FastF1 can load non-empty lap data.
+
+    This is useful for UI dropdowns so users can select sessions that are
+    likely to have telemetry instead of guessing event names manually.
+    """
+    cache_path = Path(cache_dir)
+    cache_path.mkdir(parents=True, exist_ok=True)
+    fastf1.Cache.enable_cache(str(cache_path))
+
+    try:
+        schedule = fastf1.get_event_schedule(year, include_testing=False)
+    except Exception:
+        return []
+
+    if "EventName" not in schedule.columns:
+        return []
+
+    available_events: list[str] = []
+
+    for event_name in schedule["EventName"].dropna().astype(str).tolist():
+        try:
+            session = fastf1.get_session(year, event_name, session_code)
+            session.load(laps=True, telemetry=False, weather=False, messages=False)
+            laps = session.laps
+            if laps is not None and not laps.empty:
+                available_events.append(event_name)
+        except Exception:
+            continue
+
+    # Preserve order while removing duplicates.
+    return list(dict.fromkeys(available_events))
+
+
+def get_schedule_events(year: int) -> list[str]:
+    """
+    Return event names from the official FastF1 event schedule.
+    """
+    try:
+        schedule = fastf1.get_event_schedule(year, include_testing=False)
+    except Exception:
+        return []
+
+    if "EventName" not in schedule.columns:
+        return []
+
+    events = schedule["EventName"].dropna().astype(str).tolist()
+    return list(dict.fromkeys(events))
 
 
 if __name__ == "__main__":
