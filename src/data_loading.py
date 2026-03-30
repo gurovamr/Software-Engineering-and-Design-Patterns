@@ -110,13 +110,19 @@ class FastF1Source(TelemetrySource):
         )
 
         results_df = self._prepare_results(session)
-        laps_df = self._prepare_laps(session)
+
+        driver_map = {}
+        if not results_df.empty and {"DriverNumber", "Driver"}.issubset(results_df.columns):
+            driver_map = dict(zip(results_df["DriverNumber"].astype(str), results_df["Driver"].astype(str)))
+
+        laps_df = self._prepare_laps(session, driver_map=driver_map)
         telemetry_df = self._prepare_telemetry(
             session=session,
             laps_df=laps_df,
             drivers=request.drivers,
             fastest_lap_only=request.fastest_lap_only,
-            add_distance=request.add_distance
+            add_distance=request.add_distance,
+            driver_map=driver_map
         )
 
         weather_df = self._safe_copy_session_attr(session, "weather_data")
@@ -153,17 +159,25 @@ class FastF1Source(TelemetrySource):
         existing = {k: v for k, v in rename_map.items() if k in results.columns}
         results = results.rename(columns=existing)
 
+        if "DriverNumber" in results.columns:
+            results["DriverNumber"] = results["DriverNumber"].astype(str)
+        if "Driver" in results.columns:
+            results["Driver"] = results["Driver"].astype(str)
+
         results["EventName"] = session.event["EventName"]
         results["Year"] = session.event["EventDate"].year if "EventDate" in session.event else None
         results["SessionName"] = session.name
         return results
 
     @staticmethod
-    def _prepare_laps(session) -> pd.DataFrame:
+    def _prepare_laps(session, driver_map: dict[str, str] | None = None) -> pd.DataFrame:
         try:
             laps = session.laps.copy()
         except Exception:
             return pd.DataFrame()
+        
+        if driver_map and "Driver" in laps.columns:
+            laps["Driver"] = laps["Driver"].astype(str).map(driver_map).fillna(laps["Driver"].astype(str))
 
         # Timedelta columns -> seconds where useful
         timedelta_cols = [
@@ -180,23 +194,32 @@ class FastF1Source(TelemetrySource):
         return laps
 
     def _prepare_telemetry(
-        self,
-        session,
-        laps_df: pd.DataFrame,
-        drivers: Optional[Iterable[str]],
-        fastest_lap_only: bool,
-        add_distance: bool
-    ) -> pd.DataFrame:
+    self,
+    session,
+    laps_df: pd.DataFrame,
+    drivers: Optional[Iterable[str]],
+    fastest_lap_only: bool,
+    add_distance: bool,
+    driver_map: dict[str, str] | None = None,
+) -> pd.DataFrame:
         if laps_df.empty:
             return pd.DataFrame()
 
         try:
-            session_laps = session.laps
+            session_laps = session.laps.copy()
         except Exception:
             return pd.DataFrame()
 
-        available_drivers = sorted(laps_df["Driver"].dropna().unique().tolist())
-        selected_drivers = list(drivers) if drivers else available_drivers
+        if driver_map and "Driver" in session_laps.columns:
+            session_laps["Driver"] = (
+                session_laps["Driver"]
+                .astype(str)
+                .map(driver_map)
+                .fillna(session_laps["Driver"].astype(str))
+            )
+
+        available_drivers = sorted(laps_df["Driver"].dropna().astype(str).unique().tolist())
+        selected_drivers = [str(d) for d in drivers] if drivers else available_drivers
 
         telemetry_frames: list[pd.DataFrame] = []
 
@@ -206,7 +229,8 @@ class FastF1Source(TelemetrySource):
                 continue
 
             if fastest_lap_only:
-                lap_candidates = [driver_laps.pick_fastest()]
+                fastest = driver_laps.pick_fastest()
+                lap_candidates = [fastest] if fastest is not None else []
             else:
                 lap_candidates = [lap for _, lap in driver_laps.iterlaps()]
 
@@ -214,7 +238,8 @@ class FastF1Source(TelemetrySource):
                 lap_frame = self._build_single_lap_telemetry(
                     session=session,
                     lap=lap,
-                    add_distance=add_distance
+                    add_distance=add_distance,
+                    driver_map=driver_map,
                 )
                 if not lap_frame.empty:
                     telemetry_frames.append(lap_frame)
@@ -224,7 +249,6 @@ class FastF1Source(TelemetrySource):
 
         telemetry = pd.concat(telemetry_frames, ignore_index=True)
 
-        # Optional convenience columns for plotting
         if "Time" in telemetry.columns:
             telemetry["TimeSeconds"] = telemetry["Time"].dt.total_seconds()
 
@@ -234,11 +258,12 @@ class FastF1Source(TelemetrySource):
         return telemetry
 
     @staticmethod
-    def _build_single_lap_telemetry(session, lap, add_distance: bool) -> pd.DataFrame:
-        """
-        Build one normalized telemetry table for one lap by merging car data and
-        position data on nearest timestamp.
-        """
+    def _build_single_lap_telemetry(
+        session,
+        lap,
+        add_distance: bool,
+        driver_map: dict[str, str] | None = None,
+    ) -> pd.DataFrame:
         try:
             car = lap.get_car_data().copy()
             pos = lap.get_pos_data().copy()
@@ -270,8 +295,10 @@ class FastF1Source(TelemetrySource):
         else:
             merged = car.copy()
 
-        # Add metadata columns for filtering in dashboard/backend
-        merged["Driver"] = lap["Driver"] if "Driver" in lap.index else None
+        raw_driver = str(lap["Driver"]) if "Driver" in lap.index and pd.notna(lap["Driver"]) else None
+        normalized_driver = driver_map.get(raw_driver, raw_driver) if driver_map and raw_driver is not None else raw_driver
+
+        merged["Driver"] = normalized_driver
         merged["Team"] = lap["Team"] if "Team" in lap.index else None
         merged["LapNumber"] = int(lap["LapNumber"]) if "LapNumber" in lap.index and pd.notna(lap["LapNumber"]) else None
         merged["LapTime"] = lap["LapTime"] if "LapTime" in lap.index else None

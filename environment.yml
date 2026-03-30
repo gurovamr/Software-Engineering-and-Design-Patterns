@@ -12,10 +12,9 @@ dependencies:
   - jupyter
   - notebook
   - ipykernel
-  - streamlit>=1.40,<2
-  - plotly>=5,<7
-  - pyarrow
-  - protobuf>=4,<6
+  - streamlit
+  - plotly
+  - dash
 
   - pip:
       - fastf1>=3.8,<4
