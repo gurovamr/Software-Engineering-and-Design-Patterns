@@ -14,7 +14,6 @@ class SyncRepository(BaseRepository):
     - Mark a year as fully synced
 
     Pattern: Repository
-    Principle: SRP – extracted from DataLoader to isolate DB concerns
     """
 
     def ensure_schema(self) -> None:
