@@ -12,10 +12,11 @@ from src.telemetry_metrics import (
     get_lap_summary,
     get_fastest_laps_for_driver,
     get_results_table,
+    PitStopExtractor,
 )
 from src.visualization import (
     BaseChart,
-    TeamColors,
+    F1ColorPalette,
     SpeedChart,
     ThrottleBrakeChart,
     GearChart,
@@ -27,25 +28,40 @@ from src.visualization import (
     TeamPaceChart,
     LapTimesDistributionChart,
     GearMapChart,
-    KeyEventExtractor,
 )
-from src.auth_service import AuthService
+from src.auth_service import AuthService, DriverService
 from src.preload_service import DataLoader
 
+DB_PATH = "data/f1.sqlite"
 
-class DashCallbacks:
-    """Registers all Dash callbacks."""
 
-    _session_cache: dict = {}
+class DashboardCallbackRegistry:
+    """
+    Registers all Dash callbacks.
+
+    Pattern: Dependency Injection - AuthService, DriverRepository, DataLoader
+             are injected, not hardcoded.
+    """
+
+    def __init__(
+        self,
+        auth_service: AuthService,
+        driver_service: DriverService,
+        data_loader: DataLoader,
+    ) -> None:
+        self._auth = auth_service
+        self._driver_repo = driver_service
+        self._loader = data_loader
+        self._session_cache: dict = {}
 
 
 
     @staticmethod
     def _empty_fig(title: str):
-        return BaseChart.empty(title)
+        return BaseChart.empty_figure(title)
 
     @staticmethod
-    def _prepare_telemetry(telemetry: pd.DataFrame) -> pd.DataFrame:
+    def _clean_telemetry_dataframe(telemetry: pd.DataFrame) -> pd.DataFrame:
         """Cleans Driver and LapNumber columns."""
         df = telemetry.copy()
         df["Driver"] = df["Driver"].astype(str)
@@ -71,24 +87,22 @@ class DashCallbacks:
             cls._empty_fig("Gear Shifts on Track"),
         )
 
-    @classmethod
-    def _cache_bundle(cls, year, event, session_code, bundle):
+    def _store_session_bundle(self, year, event, session_code, bundle):
         """Stores a bundle in the session cache."""
         key = f"{year}|{event}|{session_code}"
-        cls._session_cache[key] = bundle
+        self._session_cache[key] = bundle
         return key
 
-    @classmethod
-    def _get_cached_bundle(cls, bundle_data):
+    def _retrieve_cached_bundle(self, bundle_data):
         """Retrieves a bundle from the cache. Returns (bundle, telemetry_df) or (None, None)."""
         if not bundle_data:
             return None, None
-        bundle = cls._session_cache.get(bundle_data.get("cache_key"))
+        bundle = self._session_cache.get(bundle_data.get("cache_key"))
         if bundle is None:
             return None, None
         if bundle.telemetry.empty:
             return bundle, pd.DataFrame()
-        return bundle, cls._prepare_telemetry(bundle.telemetry)
+        return bundle, self._clean_telemetry_dataframe(bundle.telemetry)
 
     @staticmethod
     def _determine_default_driver(results_table, drivers):
@@ -101,17 +115,17 @@ class DashCallbacks:
         return default
 
     @staticmethod
-    def _format_results_columns(results_table):
+    def _to_datatable_columns(results_table):
         """Formats a results DataFrame as Dash DataTable columns."""
         return [{"name": c, "id": c} for c in results_table.columns]
 
     @staticmethod
-    def _format_driver_options(drivers):
+    def _to_driver_dropdown_options(drivers):
         """Formats a driver list as dropdown options."""
         return [{"label": d, "value": d} for d in drivers]
 
     @staticmethod
-    def _format_lap_options(laps):
+    def _to_lap_dropdown_options(laps):
         """Formats lap numbers as dropdown options."""
         return [{"label": str(l), "value": int(l)} for l in laps]
 
@@ -124,7 +138,7 @@ class DashCallbacks:
         return [int(x) for x in default]
 
     @staticmethod
-    def _compute_kpis(lap_df, summary_df, num_laps):
+    def _compute_kpi_strings(lap_df, summary_df, num_laps):
         """Computes the 4 KPI display strings."""
         laps_str = f"Selected Laps: {num_laps}"
         max_speed = (
@@ -164,14 +178,15 @@ class DashCallbacks:
                 results.append(cls._empty_fig(fallback))
         return tuple(results)
 
-    
-
-    _auth = AuthService()
-
-    @classmethod
-    def register(cls, app):
-
-       
+    def register(self, app):
+        """Registers all Dash callbacks on the given app instance."""
+        # Capture injected dependencies for use inside closures
+        auth = self._auth
+        driver_repo = self._driver_repo
+        loader = self._loader
+        # Capture helpers for use inside nested callback functions
+        instance = self
+        cls = type(self)
 
         @app.callback(
             Output("event-input", "options"),
@@ -194,8 +209,8 @@ class DashCallbacks:
         )
         def populate_driver_suggestions(_):
             """Populates the favorite driver dropdown with known driver codes."""
-            codes = cls._auth.get_all_driver_codes()
-            popular = cls._auth.get_popular_drivers(limit=3)
+            codes = driver_repo.get_all_driver_codes()
+            popular = driver_repo.get_popular_drivers(limit=3)
             options = []
             for code in codes:
                 label = f"{code} ★" if code in popular else code
@@ -218,17 +233,17 @@ class DashCallbacks:
                 return no_update, "Please enter username and password."
             triggered = callback_context.triggered_id
             if triggered == "btn-register":
-                ok, msg = cls._auth.register(name, password, fav_driver)
+                ok, msg = auth.register(name, password, fav_driver)
                 if not ok:
                     return no_update, msg
-                _, _, user = cls._auth.login(name, password)
-                DataLoader.start()
+                _, _, user = auth.login(name, password)
+                loader.begin_sync()
                 return user, msg
             else:
-                ok, msg, user = cls._auth.login(name, password)
+                ok, msg, user = auth.login(name, password)
                 if not ok:
                     return no_update, msg
-                DataLoader.start()
+                loader.begin_sync()
                 return user, ""
 
         @app.callback(
@@ -251,7 +266,7 @@ class DashCallbacks:
         def toggle_pages(user_data):
             """Shows login or dashboard page based on login state."""
             if user_data and user_data.get("name"):
-                DataLoader.start()
+                loader.begin_sync()
                 return (
                     {"display": "none"},
                     {"display": "block", "background": "#0d0d1a", "color": "#e0e0e0", "minHeight": "100vh"},
@@ -293,7 +308,7 @@ class DashCallbacks:
             """Polls background data sync progress."""
             if not user_data or not user_data.get("name"):
                 return "", {"display": "none"}, True
-            status = DataLoader.get_status()
+            status = loader.get_sync_status()
             if status["done"]:
                 return (
                     "✓ All session data cached and ready.",
@@ -349,7 +364,7 @@ class DashCallbacks:
                     session_code=session_code,
                     cache_dir="cache",
                 )
-                cache_key = cls._cache_bundle(year, event, session_code, bundle)
+                cache_key = instance._store_session_bundle(year, event, session_code, bundle)
                 results_table = get_results_table(bundle.results)
 
                 # Get drivers from results/laps (no telemetry needed)
@@ -411,7 +426,7 @@ class DashCallbacks:
                         fl_team = fl_team_val
 
                 # Key events
-                events_data = KeyEventExtractor.extract(bundle.laps)
+                events_data = PitStopExtractor.extract(bundle.laps)
                 event_badges = []
                 for ev in events_data:
                     badge_color = "#e10600" if ev["type"] == "PIT" else "#555"
@@ -428,9 +443,9 @@ class DashCallbacks:
 
                 return (
                     {"cache_key": cache_key, "year": year, "event": event, "session": session_code},
-                    cls._format_results_columns(results_table),
+                    cls._to_datatable_columns(results_table),
                     results_table.to_dict("records"),
-                    cls._format_driver_options(drivers),
+                    cls._to_driver_dropdown_options(drivers),
                     default_driver,
                     f"{year} {event} – {session_code}",
                     pos_fig,
@@ -439,7 +454,7 @@ class DashCallbacks:
                     p3_name, p3_team,
                     fl_name, fl_team,
                     event_badges,
-                    cls._format_driver_options(drivers),
+                    cls._to_driver_dropdown_options(drivers),
                     TyreStrategyChart(bundle.laps).render() if not bundle.laps.empty else empty_tyre,
                     TeamPaceChart(bundle.laps).render() if not bundle.laps.empty else empty_pace,
                     LapTimesDistributionChart(bundle.laps).render() if not bundle.laps.empty else empty_dist,
@@ -469,7 +484,7 @@ class DashCallbacks:
         def update_lap_dropdown(driver, bundle_data):
             if not driver:
                 return [], []
-            bundle, telemetry_df = cls._get_cached_bundle(bundle_data)
+            bundle, telemetry_df = instance._retrieve_cached_bundle(bundle_data)
             if bundle is None:
                 return [], []
 
@@ -491,7 +506,7 @@ class DashCallbacks:
                                 bundle.telemetry = pd.concat(
                                     [bundle.telemetry, driver_tel], ignore_index=True
                                 )
-                            telemetry_df = cls._prepare_telemetry(bundle.telemetry)
+                            telemetry_df = cls._clean_telemetry_dataframe(bundle.telemetry)
                     except Exception:
                         return [], []
 
@@ -500,7 +515,7 @@ class DashCallbacks:
 
             laps = get_driver_laps(telemetry_df, driver)
             default_laps = cls._select_default_laps(telemetry_df, driver, laps)
-            return cls._format_lap_options(laps), default_laps
+            return cls._to_lap_dropdown_options(laps), default_laps
 
         @app.callback(
             Output("kpi-laps", "children"),
@@ -523,7 +538,7 @@ class DashCallbacks:
             if not driver or not selected_laps:
                 return cls._empty_dashboard()
 
-            bundle, telemetry_df = cls._get_cached_bundle(bundle_data)
+            bundle, telemetry_df = instance._retrieve_cached_bundle(bundle_data)
             if bundle is None:
                 return cls._empty_dashboard()
 
@@ -539,13 +554,13 @@ class DashCallbacks:
                     *cls._empty_dashboard()[4:],
                 )
 
-            kpis = cls._compute_kpis(lap_df, summary_df, len(selected_laps))
+            kpis = cls._compute_kpi_strings(lap_df, summary_df, len(selected_laps))
             charts = cls._build_all_charts(lap_df, summary_df, len(selected_laps))
 
             return (
                 *kpis,
                 charts[0],
-                cls._format_results_columns(summary_df),
+                cls._to_datatable_columns(summary_df),
                 summary_df.to_dict("records"),
                 *charts[1:],
             )

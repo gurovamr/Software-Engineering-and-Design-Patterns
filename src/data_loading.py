@@ -1,8 +1,5 @@
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from functools import lru_cache
 from pathlib import Path
 from typing import Optional, Iterable
 
@@ -10,10 +7,14 @@ import pandas as pd
 import fastf1
 
 
-
-
 @dataclass(frozen=True)
 class SessionRequest:
+    """
+    Immutable value object describing a single F1 session to load.
+
+    Pattern: Value Object (DDD)
+    """
+
     year: int
     event: str | int
     session_code: str  # e.g. "R", "Q", "FP1", "FP2", "S"
@@ -26,6 +27,13 @@ class SessionRequest:
 
 @dataclass
 class TelemetryBundle:
+    """
+    Aggregates all normalized DataFrames produced from one F1 session load.
+
+    Pattern: Data Transfer Object (DTO)
+    Principle: SRP – pure data container, no business logic except persistence
+    """
+
     session_info: dict
     results: pd.DataFrame
     laps: pd.DataFrame
@@ -36,9 +44,7 @@ class TelemetryBundle:
     race_control_messages: pd.DataFrame
 
     def save(self, output_dir: str | Path) -> None:
-        """
-        Save all normalized tables to parquet files.
-        """
+        """Persists all normalized tables to parquet files."""
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -110,12 +116,12 @@ class FastF1Source(TelemetrySource):
             messages=request.include_messages
         )
 
-        results_df = self._prepare_results(session)
+        results_df = self._normalize_results(session)
 
         driver_map = self.build_driver_map(results_df)
 
-        laps_df = self._prepare_laps(session, driver_map=driver_map)
-        telemetry_df = self._prepare_telemetry(
+        laps_df = self._normalize_laps(session, driver_map=driver_map)
+        telemetry_df = self._build_telemetry_dataframe(
             session=session,
             laps_df=laps_df,
             drivers=request.drivers,
@@ -141,7 +147,7 @@ class FastF1Source(TelemetrySource):
         )
 
     @staticmethod
-    def _prepare_results(session) -> pd.DataFrame:
+    def _normalize_results(session) -> pd.DataFrame:
         try:
             results = session.results.copy()
         except Exception:
@@ -169,7 +175,7 @@ class FastF1Source(TelemetrySource):
         return results
 
     @staticmethod
-    def _prepare_laps(session, driver_map: dict[str, str] | None = None) -> pd.DataFrame:
+    def _normalize_laps(session, driver_map: dict[str, str] | None = None) -> pd.DataFrame:
         try:
             laps = session.laps.copy()
         except Exception:
@@ -192,7 +198,7 @@ class FastF1Source(TelemetrySource):
 
         return laps
 
-    def _prepare_telemetry(
+    def _build_telemetry_dataframe(
     self,
     session,
     laps_df: pd.DataFrame,
@@ -234,7 +240,7 @@ class FastF1Source(TelemetrySource):
                 lap_candidates = [lap for _, lap in driver_laps.iterlaps()]
 
             for lap in lap_candidates:
-                lap_frame = self._build_single_lap_telemetry(
+                lap_frame = self._merge_single_lap_telemetry(
                     session=session,
                     lap=lap,
                     add_distance=add_distance,
@@ -257,7 +263,7 @@ class FastF1Source(TelemetrySource):
         return telemetry
 
     @staticmethod
-    def _build_single_lap_telemetry(
+    def _merge_single_lap_telemetry(
         session,
         lap,
         add_distance: bool,
@@ -314,7 +320,7 @@ class FastF1Source(TelemetrySource):
 
 
 
-class SessionCache:
+class F1SessionBundleCache:
     """
     Caches FastF1 session objects and provides high-level loading methods.
 
@@ -329,7 +335,7 @@ class SessionCache:
         self._cache_dir = Path(cache_dir)
         self._cache: dict[str, tuple] = {}
 
-    def _make_key(self, year: int, event: str | int, session_code: str) -> str:
+    def _make_cache_key(self, year: int, event: str | int, session_code: str) -> str:
         return f"{year}|{event}|{session_code}"
 
     def load_quick(
@@ -346,11 +352,11 @@ class SessionCache:
         session = fastf1.get_session(year, event, session_code)
         session.load(laps=True, telemetry=False, weather=False, messages=False)
 
-        self._cache[self._make_key(year, event, session_code)] = (session, source)
+        self._cache[self._make_cache_key(year, event, session_code)] = (session, source)
 
-        results_df = source._prepare_results(session)
+        results_df = source._normalize_results(session)
         driver_map = source.build_driver_map(results_df)
-        laps_df = source._prepare_laps(session, driver_map=driver_map)
+        laps_df = source._normalize_laps(session, driver_map=driver_map)
 
         return TelemetryBundle(
             session_info=dict(session.session_info),
@@ -374,7 +380,7 @@ class SessionCache:
         Extract telemetry for a single driver.
         Reuses cached session objects; loads telemetry additively if needed.
         """
-        key = self._make_key(year, event, session_code)
+        key = self._make_cache_key(year, event, session_code)
         cached = self._cache.get(key)
 
         if cached:
@@ -387,11 +393,11 @@ class SessionCache:
         # Additive — no-op if telemetry already loaded
         session.load(laps=True, telemetry=True, weather=False, messages=False)
 
-        results_df = source._prepare_results(session)
+        results_df = source._normalize_results(session)
         driver_map = source.build_driver_map(results_df)
-        laps_df = source._prepare_laps(session, driver_map=driver_map)
+        laps_df = source._normalize_laps(session, driver_map=driver_map)
 
-        return source._prepare_telemetry(
+        return source._build_telemetry_dataframe(
             session=session,
             laps_df=laps_df,
             drivers=[driver],
@@ -437,16 +443,26 @@ class SessionCache:
 
 
 
-class ScheduleService:
-    """Provides event schedule lookups from FastF1."""
+class F1ScheduleService:
+    """
+    Provides event schedule lookups from FastF1.
 
-    _cache_dir = "cache"
+    Pattern: Monostate – every instance shares the same event cache dict,
+    so results fetched by one caller are immediately visible to all others
+    without requiring a global Singleton reference.
+    """
 
-    @classmethod
-    @lru_cache(maxsize=32)
-    def get_events(cls, year: int) -> list[str]:
-        """Return event names from the official schedule."""
-        fastf1.Cache.enable_cache(cls._cache_dir)
+    _shared_state: dict = {"_event_cache": {}, "_cache_dir": "cache"}
+
+    def __init__(self) -> None:
+        self.__dict__ = F1ScheduleService._shared_state
+
+    def get_events(self, year: int) -> list[str]:
+        """Return event names from the official schedule (cached)."""
+        if year in self._event_cache:
+            return self._event_cache[year]
+
+        fastf1.Cache.enable_cache(self._cache_dir)
         try:
             schedule = fastf1.get_event_schedule(year, include_testing=False)
         except Exception:
@@ -455,12 +471,12 @@ class ScheduleService:
         if "EventName" not in schedule.columns:
             return []
 
-        events = schedule["EventName"].dropna().astype(str).tolist()
-        return list(dict.fromkeys(events))
+        events = list(dict.fromkeys(schedule["EventName"].dropna().astype(str).tolist()))
+        self._event_cache[year] = events
+        return events
 
-    @classmethod
     def get_events_with_laps(
-        cls,
+        self,
         year: int,
         session_code: str,
         *,
@@ -493,7 +509,7 @@ class ScheduleService:
 
 
 
-_default_session_cache = SessionCache()
+_default_session_cache = F1SessionBundleCache()
 
 
 
@@ -542,11 +558,11 @@ def load_f1_data(
 
 
 def cache_session(year: int, event: str, session_code: str, cache_dir: str | Path = "cache"):
-    SessionCache.preload(year, event, session_code, cache_dir)
+    F1SessionBundleCache.preload(year, event, session_code, cache_dir)
 
 
 def get_schedule_events(year: int) -> list[str]:
-    return ScheduleService.get_events(year)
+    return F1ScheduleService().get_events(year)
 
 
 def get_events_with_available_laps(
@@ -555,4 +571,4 @@ def get_events_with_available_laps(
     *,
     cache_dir: str | Path = "cache",
 ) -> list[str]:
-    return ScheduleService.get_events_with_laps(year, session_code, cache_dir=cache_dir)
+    return F1ScheduleService().get_events_with_laps(year, session_code, cache_dir=cache_dir)

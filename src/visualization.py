@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -12,14 +10,14 @@ from plotly.subplots import make_subplots
 
 
 @dataclass(frozen=True)
-class ThemeConfig:
+class DarkThemeConfig:
     bg: str = "#1a1a2e"
     grid: str = "#333355"
     text: str = "#e0e0e0"
 
 
 
-class TeamColors:
+class F1ColorPalette:
     _TEAMS: dict[str, str] = {
         "Mercedes": "#27F4D2",
         "Red Bull Racing": "#3671C6",
@@ -64,7 +62,7 @@ class TeamColors:
     DRIVER_2 = "#e04040"
 
     @classmethod
-    def get(cls, team: str) -> str:
+    def get_team_color(cls, team: str) -> str:
         if not team:
             return "#888888"
         for key, color in cls._TEAMS.items():
@@ -73,11 +71,11 @@ class TeamColors:
         return "#888888"
 
     @classmethod
-    def compound(cls, name: str) -> str:
+    def get_compound_color(cls, name: str) -> str:
         return cls._COMPOUNDS.get(str(name).upper(), "#888888")
 
     @classmethod
-    def gear(cls, n: int) -> str:
+    def get_gear_color(cls, n: int) -> str:
         if 1 <= n <= 8:
             return cls._GEARS[n - 1]
         return "#888888"
@@ -91,7 +89,7 @@ class TeamColors:
 
 
 class BaseChart(ABC):
-    _theme = ThemeConfig()
+    _theme = DarkThemeConfig()
 
     def __init__(self, df: pd.DataFrame):
         self._df = df
@@ -118,7 +116,7 @@ class BaseChart(ABC):
         )
 
     @classmethod
-    def empty(cls, title: str = "", height: int = 400) -> go.Figure:
+    def empty_figure(cls, title: str = "", height: int = 400) -> go.Figure:
         fig = go.Figure()
         t = cls._theme
         fig.update_layout(
@@ -232,7 +230,7 @@ class PositionChart(BaseChart):
         for driver in sorted(df["Driver"].unique()):
             d = df[df["Driver"] == driver].sort_values("LapNumber")
             team = d["Team"].iloc[0] if "Team" in d.columns and not d.empty else ""
-            color = TeamColors.get(team)
+            color = F1ColorPalette.get_team_color(team)
 
             pit_laps = d[d["PitInTime"].notna()] if "PitInTime" in d.columns else pd.DataFrame()
 
@@ -287,7 +285,7 @@ class TyreStrategyChart(BaseChart):
             prev_end = 0
             for _, row in driver_stints.iterrows():
                 compound = str(row["Compound"]).upper()
-                color = TeamColors.compound(compound)
+                color = F1ColorPalette.get_compound_color(compound)
                 length = int(row["StintLength"])
                 fig.add_trace(go.Bar(
                     y=[driver], x=[length], base=prev_end, orientation="h",
@@ -301,7 +299,7 @@ class TyreStrategyChart(BaseChart):
         for compound in ["SOFT", "MEDIUM", "HARD", "INTERMEDIATE", "WET"]:
             if compound in used:
                 fig.add_trace(go.Bar(
-                    y=[None], x=[0], marker=dict(color=TeamColors.compound(compound)),
+                    y=[None], x=[0], marker=dict(color=F1ColorPalette.get_compound_color(compound)),
                     name=compound, showlegend=True,
                 ))
 
@@ -340,7 +338,7 @@ class TeamPaceChart(BaseChart):
 
         team_median = df.groupby("Team")["LapTimeSec"].median().sort_values()
         for team in team_median.index:
-            color = TeamColors.get(team)
+            color = F1ColorPalette.get_team_color(team)
             fig.add_trace(go.Box(
                 y=df[df["Team"] == team]["LapTimeSec"], name=team,
                 marker=dict(color=color, size=4), line=dict(color=color),
@@ -391,8 +389,8 @@ class LapTimesDistributionChart(BaseChart):
         for driver in driver_order:
             d = df[df["Driver"] == driver]
             team = d["Team"].iloc[0] if "Team" in d.columns and not d.empty else ""
-            color = TeamColors.get(team)
-            fill = TeamColors.hex_to_rgba(color, 0.2)
+            color = F1ColorPalette.get_team_color(team)
+            fill = F1ColorPalette.hex_to_rgba(color, 0.2)
 
             fig.add_trace(go.Violin(
                 y=d["LapTimeSec"], name=driver,
@@ -438,7 +436,7 @@ class GearMapChart(BaseChart):
 
         for gear in sorted(df["nGear"].unique()):
             gear_int = int(gear)
-            color = TeamColors.gear(gear_int)
+            color = F1ColorPalette.get_gear_color(gear_int)
             gd = df[df["nGear"] == gear]
             fig.add_trace(go.Scatter(
                 x=gd["X"], y=gd["Y"], mode="markers",
@@ -460,7 +458,54 @@ class GearMapChart(BaseChart):
 
 
 
-class DriverComparisonChart(BaseChart):
+class TwoDriverChart(ABC):
+    """
+    Abstract base for charts that compare exactly two drivers.
+
+    Satisfies LSP: subclasses share the same two-DataFrame constructor
+    contract instead of breaking BaseChart's single-DataFrame interface.
+
+    Pattern: Template Method
+    """
+
+    _theme = DarkThemeConfig()
+
+    def __init__(
+        self,
+        tel1: pd.DataFrame,
+        tel2: pd.DataFrame,
+        driver1: str,
+        driver2: str,
+    ) -> None:
+        self._tel1 = tel1
+        self._tel2 = tel2
+        self._driver1 = driver1
+        self._driver2 = driver2
+
+    def render(self) -> go.Figure:
+        fig = self._build()
+        self._apply_theme(fig)
+        return fig
+
+    @abstractmethod
+    def _build(self) -> go.Figure: ...
+
+    def _apply_theme(self, fig: go.Figure) -> None:
+        t = self._theme
+        fig.update_layout(
+            paper_bgcolor=t.bg,
+            plot_bgcolor=t.bg,
+            font=dict(color=t.text, size=11),
+        )
+        for i in range(1, 6):
+            fig.update_xaxes(gridcolor=t.grid, zerolinecolor=t.grid, row=i, col=1)
+            fig.update_yaxes(gridcolor=t.grid, zerolinecolor=t.grid, row=i, col=1)
+        for ann in fig.layout.annotations:
+            ann.font.color = t.text
+            ann.font.size = 11
+
+
+class DriverComparisonChart(TwoDriverChart):
     def __init__(
         self,
         tel1: pd.DataFrame,
@@ -471,10 +516,7 @@ class DriverComparisonChart(BaseChart):
         lap_time1: str = "",
         lap_time2: str = "",
     ):
-        super().__init__(tel1)
-        self._tel2 = tel2
-        self._d1 = d1
-        self._d2 = d2
+        super().__init__(tel1, tel2, d1, d2)
         self._title = title
         self._lap_time1 = lap_time1
         self._lap_time2 = lap_time2
@@ -482,7 +524,7 @@ class DriverComparisonChart(BaseChart):
     def _build(self) -> go.Figure:
         row_titles = [
             "Speed (km/h)", "Throttle (%)", "Brake",
-            "Gear", f"Δ {self._d1}–{self._d2} (s)",
+            "Gear", f"Δ {self._driver1}–{self._driver2} (s)",
         ]
         fig = make_subplots(
             rows=5, cols=1, shared_xaxes=True,
@@ -491,8 +533,8 @@ class DriverComparisonChart(BaseChart):
             subplot_titles=row_titles,
         )
 
-        c1, c2 = TeamColors.DRIVER_1, TeamColors.DRIVER_2
-        tel1, tel2 = self._df, self._tel2
+        c1, c2 = F1ColorPalette.DRIVER_1, F1ColorPalette.DRIVER_2
+        tel1, tel2 = self._tel1, self._tel2
 
         def _add(df, y_col, row, name, color, showlegend=False):
             if y_col not in df.columns or "Distance" not in df.columns:
@@ -504,14 +546,14 @@ class DriverComparisonChart(BaseChart):
                 showlegend=showlegend,
             ), row=row, col=1)
 
-        _add(tel1, "Speed", 1, self._d1, c1, showlegend=True)
-        _add(tel2, "Speed", 1, self._d2, c2, showlegend=True)
-        _add(tel1, "Throttle", 2, self._d1, c1)
-        _add(tel2, "Throttle", 2, self._d2, c2)
-        _add(tel1, "Brake", 3, self._d1, c1)
-        _add(tel2, "Brake", 3, self._d2, c2)
-        _add(tel1, "nGear", 4, self._d1, c1)
-        _add(tel2, "nGear", 4, self._d2, c2)
+        _add(tel1, "Speed", 1, self._driver1, c1, showlegend=True)
+        _add(tel2, "Speed", 1, self._driver2, c2, showlegend=True)
+        _add(tel1, "Throttle", 2, self._driver1, c1)
+        _add(tel2, "Throttle", 2, self._driver2, c2)
+        _add(tel1, "Brake", 3, self._driver1, c1)
+        _add(tel2, "Brake", 3, self._driver2, c2)
+        _add(tel1, "nGear", 4, self._driver1, c1)
+        _add(tel2, "nGear", 4, self._driver2, c2)
 
         ref_dist, delta = self._compute_delta(tel1, tel2)
         if len(ref_dist) > 0:
@@ -523,7 +565,7 @@ class DriverComparisonChart(BaseChart):
             ), row=5, col=1)
             fig.add_hline(y=0, line=dict(color="#555", dash="dash", width=0.8), row=5, col=1)
 
-        subtitle = self._build_subtitle(ref_dist, delta)
+        subtitle = self._build_delta_subtitle(ref_dist, delta)
         fig.update_layout(
             title=dict(
                 text=(f"{self._title}<br><span style='font-size:11px;color:#aaa'>"
@@ -541,20 +583,6 @@ class DriverComparisonChart(BaseChart):
 
         fig.update_xaxes(title_text="Distance (m)", row=5, col=1)
         return fig
-
-    def _apply_theme(self, fig: go.Figure) -> None:
-        t = self._theme
-        fig.update_layout(
-            paper_bgcolor=t.bg,
-            plot_bgcolor=t.bg,
-            font=dict(color=t.text, size=11),
-        )
-        for i in range(1, 6):
-            fig.update_xaxes(gridcolor=t.grid, zerolinecolor=t.grid, row=i, col=1)
-            fig.update_yaxes(gridcolor=t.grid, zerolinecolor=t.grid, row=i, col=1)
-        for ann in fig.layout.annotations:
-            ann.font.color = t.text
-            ann.font.size = 11
 
     @staticmethod
     def _compute_delta(tel1: pd.DataFrame, tel2: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
@@ -582,30 +610,14 @@ class DriverComparisonChart(BaseChart):
 
         return ref_dist, time1_interp - time2_interp
 
-    def _build_subtitle(self, ref_dist: np.ndarray, delta: np.ndarray) -> str:
+    def _build_delta_subtitle(self, ref_dist: np.ndarray, delta: np.ndarray) -> str:
         parts: list[str] = []
         if self._lap_time1:
-            parts.append(f"{self._d1}: {self._lap_time1}")
+            parts.append(f"{self._driver1}: {self._lap_time1}")
         if self._lap_time2:
-            parts.append(f"{self._d2}: {self._lap_time2}")
+            parts.append(f"{self._driver2}: {self._lap_time2}")
         if len(ref_dist) > 0:
             final = delta[-1]
-            faster = self._d1 if final < 0 else self._d2
+            faster = self._driver1 if final < 0 else self._driver2
             parts.append(f"Δ {abs(final):.3f}s ({faster} faster)")
         return " | ".join(parts)
-
-
-
-class KeyEventExtractor:
-    @staticmethod
-    def extract(laps_df: pd.DataFrame) -> list[dict]:
-        events: list[dict] = []
-        if laps_df.empty:
-            return events
-        if "PitInTime" in laps_df.columns:
-            pits = laps_df[laps_df["PitInTime"].notna()].copy()
-            for _, row in pits.iterrows():
-                driver = str(row.get("Driver", "?"))
-                lap = int(row["LapNumber"]) if pd.notna(row.get("LapNumber")) else 0
-                events.append({"driver": driver, "lap": lap, "type": "PIT"})
-        return sorted(events, key=lambda e: (e["lap"], e["driver"]))
