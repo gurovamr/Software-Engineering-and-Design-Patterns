@@ -1,9 +1,10 @@
 import pandas as pd
 from dash import Input, Output, State, no_update, callback_context, html
 import plotly.graph_objects as go
+from pathlib import Path
 
 from src.data_loading import load_session_quick, load_driver_telemetry
-from src.database import F1TrackQuery
+from src.database import F1TrackQuery, TrackRepository
 from src.telemetry_metrics import (
     get_available_drivers,
     get_driver_laps,
@@ -30,7 +31,7 @@ from src.visualization import (
 from src.auth_service import AuthService, DriverService
 from src.preload_service import DataLoader
 
-DB_PATH = "data/f1.sqlite"
+DB_PATH = str(Path(__file__).resolve().parent.parent / "data" / "f1.sqlite")
 
 
 class DashboardCallbackRegistry:
@@ -196,7 +197,13 @@ class DashboardCallbackRegistry:
             if not year:
                 return [], None
             year = int(year)
-            events = F1TrackQuery.from_schedule(year)
+            # Cache-first: serve from local DB, only hit network if empty
+            track_repo = TrackRepository(DB_PATH)
+            events = track_repo.get_events(year)
+            if not events:
+                events = F1TrackQuery.from_schedule(year)
+                if events:
+                    track_repo.upsert_event_names(year, events)
             options = [{"label": e, "value": e} for e in events]
             default = events[0] if events else None
             return options, default

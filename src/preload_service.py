@@ -10,6 +10,7 @@ from src.database import F1TrackQuery, TrackRepository
 from src.database.sync_repository import SyncRepository
 
 DB_PATH = str(Path(__file__).resolve().parent.parent / "data" / "f1.sqlite")
+CACHE_DIR = str(Path(__file__).resolve().parent.parent / "cache")
 
 
 class DataLoader:
@@ -129,7 +130,7 @@ class DataLoader:
         def _download(task):
             y, event, session_code = task
             try:
-                cache_session(y, event, session_code, cache_dir="cache")
+                cache_session(y, event, session_code, cache_dir=CACHE_DIR)
                 return task, True
             except Exception:
                 return task, False
