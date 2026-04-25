@@ -1,6 +1,8 @@
+from dataclasses import dataclass
 from pathlib import Path
 import sys
 
+import pandas as pd
 import streamlit as st
 
 project_root = Path(__file__).resolve().parent
@@ -18,169 +20,273 @@ from src.telemetry_metrics import (
     get_multiple_laps_telemetry,
     get_lap_summary,
     get_fastest_laps_for_driver,
-    get_results_table
+    get_results_table,
 )
 from src.visualization import (
-    plot_speed,
-    plot_throttle_brake,
-    plot_gear,
-    plot_track_map,
-    plot_lap_summary
+    SpeedChart,
+    ThrottleBrakeChart,
+    GearChart,
+    TrackMapChart,
+    LapSummaryChart,
 )
 
-st.set_page_config(page_title="F1 Telemetry Viewer", layout="wide")
-st.title("F1 Telemetry Viewer")
-
-SESSION_OPTIONS = ["R", "Q", "FP1", "FP2", "FP3", "S", "SQ"]
 
 
-@st.cache_data(show_spinner=False)
-def cached_load_bundle(year: int, event: str, session_code: str, cache_dir: str):
-    return load_f1_data(
-        year=year,
-        event=event,
-        session_code=session_code,
-        cache_dir=cache_dir,
-        fastest_lap_only=False
-    )
+@dataclass(frozen=True)
+class SessionSelection:
+    """Immutable record of the user's session choice."""
+    year: int
+    event: str
+    session_code: str
+    cache_dir: str
 
 
-@st.cache_data(show_spinner=False)
-def cached_available_events(year: int, session_code: str, cache_dir: str):
-    return get_events_with_available_laps(
-        year=year,
-        session_code=session_code,
-        cache_dir=cache_dir
-    )
+@dataclass(frozen=True)
+class DriverSelection:
+    """Immutable record of the user's driver / lap choice."""
+    driver: str
+    laps: list[int]
 
 
-@st.cache_data(show_spinner=False)
-def cached_schedule_events(year: int):
-    return get_schedule_events(year)
 
+class DataService:
+    """Thin wrapper around data-loading functions with Streamlit caching."""
 
-with st.sidebar:
-    st.header("Session Selection")
-    year = st.number_input("Year", min_value=2018, max_value=2026, value=2024, step=1)
-    session_code = st.selectbox("Session", SESSION_OPTIONS, index=1)
-    cache_dir = st.text_input("Cache directory", value="cache")
+    SESSION_OPTIONS = ["R", "Q", "FP1", "FP2", "FP3", "S", "SQ"]
 
-with st.spinner("Checking which events have lap data for this year/session..."):
-    available_events = cached_available_events(year, session_code, cache_dir)
-schedule_events = cached_schedule_events(year)
-
-with st.sidebar:
-    if available_events:
-        default_event = "Monza" if "Monza" in available_events else available_events[0]
-        event = st.selectbox(
-            "Race / Event",
-            options=available_events,
-            index=available_events.index(default_event)
+    @staticmethod
+    @st.cache_data(show_spinner=False)
+    def load_bundle(year: int, event: str, session_code: str, cache_dir: str):
+        return load_f1_data(
+            year=year,
+            event=event,
+            session_code=session_code,
+            cache_dir=cache_dir,
+            fastest_lap_only=False,
         )
-        st.caption(f"{len(available_events)} events found with lap data.")
-    elif schedule_events:
-        default_event = "Monza" if "Monza" in schedule_events else schedule_events[0]
-        event = st.selectbox(
-            "Race / Event",
-            options=schedule_events,
-            index=schedule_events.index(default_event)
+
+    @staticmethod
+    @st.cache_data(show_spinner=False)
+    def available_events(year: int, session_code: str, cache_dir: str):
+        return get_events_with_available_laps(
+            year=year, session_code=session_code, cache_dir=cache_dir
         )
-        st.caption("No events could be verified with lap telemetry right now. Showing full race schedule.")
-    else:
-        st.warning("No events with lap data were detected. Use manual input.")
-        event = st.text_input("Race / Event", value="Monza")
 
-bundle = cached_load_bundle(year, event, session_code, cache_dir)
-
-if bundle.telemetry.empty:
-    st.error("No telemetry data available.")
-    st.stop()
-
-drivers = get_available_drivers(bundle.telemetry)
-if not drivers:
-    st.error("No drivers found in telemetry.")
-    st.stop()
-
-default_driver = drivers[0]
-if not bundle.results.empty and "Driver" in bundle.results.columns:
-    result_drivers = bundle.results["Driver"].dropna().tolist()
-    if result_drivers and result_drivers[0] in drivers:
-        default_driver = result_drivers[0]
+    @staticmethod
+    @st.cache_data(show_spinner=False)
+    def schedule_events(year: int):
+        return get_schedule_events(year)
 
 
-with st.sidebar:
-    st.header("Telemetry Selection")
 
-    driver = st.selectbox("Driver", drivers, index=drivers.index(default_driver) if default_driver in drivers else 0)
+class Sidebar:
+    """All sidebar UI controls for session and driver selection."""
 
-    available_laps = get_driver_laps(bundle.telemetry, driver)
-    default_laps = get_fastest_laps_for_driver(bundle.telemetry, driver, top_n=2)
-    if not default_laps and available_laps:
-        default_laps = available_laps[:2]
+    @staticmethod
+    def select_session() -> SessionSelection:
+        with st.sidebar:
+            st.header("Session Selection")
+            year = st.number_input(
+                "Year", min_value=2018, max_value=2026, value=2024, step=1
+            )
+            session_code = st.selectbox(
+                "Session", DataService.SESSION_OPTIONS, index=1
+            )
+            cache_dir = st.text_input("Cache directory", value="cache")
 
-    selected_laps = st.multiselect(
-        "Laps to compare",
-        options=available_laps,
-        default=default_laps
-    )
+        with st.spinner("Checking which events have lap data for this year/session..."):
+            available = DataService.available_events(year, session_code, cache_dir)
+        schedule = DataService.schedule_events(year)
 
-if not selected_laps:
-    st.warning("Please select at least one lap.")
-    st.stop()
+        with st.sidebar:
+            event = Sidebar._event_picker(available, schedule)
 
-lap_df = get_multiple_laps_telemetry(bundle.telemetry, driver, selected_laps)
-summary_df = get_lap_summary(bundle.telemetry, driver, selected_laps)
+        return SessionSelection(year, event, session_code, cache_dir)
 
-if lap_df.empty:
-    st.warning("No telemetry data found for the selected laps.")
-    st.stop()
+    @staticmethod
+    def select_driver(telemetry: pd.DataFrame, results: pd.DataFrame) -> DriverSelection:
+        drivers = get_available_drivers(telemetry)
+        if not drivers:
+            st.error("No drivers found in telemetry.")
+            st.stop()
 
-# Display session and driver info
-st.subheader(f"{year} {event} {session_code} — {driver}")
+        default_driver = drivers[0]
+        if not results.empty and "Driver" in results.columns:
+            top = results["Driver"].dropna().tolist()
+            if top and top[0] in drivers:
+                default_driver = top[0]
 
-c1, c2, c3 = st.columns(3)
-c1.metric("Selected Laps", len(selected_laps))
-c2.metric("Max Speed", f"{lap_df['Speed'].max():.1f} km/h" if "Speed" in lap_df.columns else "n/a")
-c3.metric("Telemetry Samples", len(lap_df))
+        with st.sidebar:
+            st.header("Telemetry Selection")
+            driver = st.selectbox(
+                "Driver",
+                drivers,
+                index=drivers.index(default_driver) if default_driver in drivers else 0,
+            )
+            available_laps = get_driver_laps(telemetry, driver)
+            default_laps = get_fastest_laps_for_driver(telemetry, driver, top_n=2)
+            if not default_laps and available_laps:
+                default_laps = available_laps[:2]
 
-# Results table
-results_table = get_results_table(bundle.results)
+            selected = st.multiselect(
+                "Laps to compare", options=available_laps, default=default_laps
+            )
 
-st.subheader("Driver Ranking / Classification")
-st.dataframe(results_table, use_container_width=True, hide_index=True)
+        if not selected:
+            st.warning("Please select at least one lap.")
+            st.stop()
 
-# Lap Comparison
-st.subheader("Lap Comparison")
-if len(selected_laps) >= 2 and not summary_df.empty:
-    st.plotly_chart(plot_lap_summary(summary_df), use_container_width=True)
-else:
-    if not summary_df.empty:
-        best_row = summary_df.iloc[0]
-        st.metric("Lap Time", f"{best_row['LapTimeSeconds']:.3f} s")
+        return DriverSelection(driver, selected)
 
-st.subheader("Lap Summary")
-if not summary_df.empty:
-    st.dataframe(summary_df, use_container_width=True, hide_index=True)
-else:
-    st.info("No lap summary available.")
+  
+    @staticmethod
+    def _event_picker(available: list[str], schedule: list[str]) -> str:
+        if available:
+            default = "Monza" if "Monza" in available else available[0]
+            event = st.selectbox(
+                "Race / Event",
+                options=available,
+                index=available.index(default),
+            )
+            st.caption(f"{len(available)} events found with lap data.")
+        elif schedule:
+            default = "Monza" if "Monza" in schedule else schedule[0]
+            event = st.selectbox(
+                "Race / Event",
+                options=schedule,
+                index=schedule.index(default),
+            )
+            st.caption(
+                "No events could be verified with lap telemetry right now. "
+                "Showing full race schedule."
+            )
+        else:
+            st.warning("No events with lap data were detected. Use manual input.")
+            event = st.text_input("Race / Event", value="Monza")
+        return event
 
-# Telemetry Plots
-st.subheader("Telemetry Analysis")
-col1, col2 = st.columns(2)
 
-with col1:
-    if {"Distance", "Speed", "LapNumber"}.issubset(lap_df.columns):
-        st.plotly_chart(plot_speed(lap_df), use_container_width=True)
 
-with col2:
-    if {"Distance", "nGear", "LapNumber"}.issubset(lap_df.columns):
-        st.plotly_chart(plot_gear(lap_df), use_container_width=True)
+class Dashboard:
+    """Renders the main content area with metrics, tables, and charts."""
 
-if {"Distance", "Throttle", "Brake", "LapNumber"}.issubset(lap_df.columns):
-    st.plotly_chart(plot_throttle_brake(lap_df), use_container_width=True)
+    def __init__(
+        self,
+        session: SessionSelection,
+        driver: str,
+        lap_df: pd.DataFrame,
+        summary_df: pd.DataFrame,
+        results: pd.DataFrame,
+        selected_laps: list[int],
+    ):
+        self._session = session
+        self._driver = driver
+        self._lap_df = lap_df
+        self._summary = summary_df
+        self._results = results
+        self._laps = selected_laps
 
-if {"X", "Y", "Speed", "LapNumber"}.issubset(lap_df.columns):
-    st.plotly_chart(plot_track_map(lap_df), use_container_width=True)
+    def render(self) -> None:
+        self._render_header()
+        self._render_results()
+        self._render_lap_comparison()
+        self._render_lap_summary()
+        self._render_charts()
+        self._render_raw_data()
 
-with st.expander("Raw telemetry data"):
-    st.dataframe(lap_df, use_container_width=True)
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Selected Laps", len(self._laps))
+        c2.metric(
+            "Max Speed",
+            f"{self._lap_df['Speed'].max():.1f} km/h"
+            if "Speed" in self._lap_df.columns
+            else "n/a",
+        )
+        c3.metric("Telemetry Samples", len(self._lap_df))
+
+    def _render_results(self) -> None:
+        table = get_results_table(self._results)
+        st.subheader("Driver Ranking / Classification")
+        st.dataframe(table, use_container_width=True, hide_index=True)
+
+    def _render_lap_comparison(self) -> None:
+        st.subheader("Lap Comparison")
+        if len(self._laps) >= 2 and not self._summary.empty:
+            st.plotly_chart(
+                LapSummaryChart(self._summary).render(), use_container_width=True
+            )
+        elif not self._summary.empty:
+            best = self._summary.iloc[0]
+            st.metric("Lap Time", f"{best['LapTimeSeconds']:.3f} s")
+
+    def _render_lap_summary(self) -> None:
+        st.subheader("Lap Summary")
+        if not self._summary.empty:
+            st.dataframe(self._summary, use_container_width=True, hide_index=True)
+        else:
+            st.info("No lap summary available.")
+
+    def _render_charts(self) -> None:
+        st.subheader("Telemetry Analysis")
+        df = self._lap_df
+        cols = df.columns
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if {"Distance", "Speed", "LapNumber"}.issubset(cols):
+                st.plotly_chart(SpeedChart(df).render(), use_container_width=True)
+        with col2:
+            if {"Distance", "nGear", "LapNumber"}.issubset(cols):
+                st.plotly_chart(GearChart(df).render(), use_container_width=True)
+
+        if {"Distance", "Throttle", "Brake", "LapNumber"}.issubset(cols):
+            st.plotly_chart(ThrottleBrakeChart(df).render(), use_container_width=True)
+        if {"X", "Y", "Speed", "LapNumber"}.issubset(cols):
+            st.plotly_chart(TrackMapChart(df).render(), use_container_width=True)
+
+    def _render_raw_data(self) -> None:
+        with st.expander("Raw telemetry data"):
+            st.dataframe(self._lap_df, use_container_width=True)
+
+
+
+class F1App:
+    """Top-level orchestrator — ties sidebar, data, and dashboard together."""
+
+    def __init__(self):
+        st.set_page_config(page_title="F1 Telemetry Viewer", layout="wide")
+        st.title("F1 Telemetry Viewer")
+
+    def run(self) -> None:
+        session = Sidebar.select_session()
+
+        bundle = DataService.load_bundle(
+            session.year, session.event, session.session_code, session.cache_dir
+        )
+        if bundle.telemetry.empty:
+            st.error("No telemetry data available.")
+            st.stop()
+
+        selection = Sidebar.select_driver(bundle.telemetry, bundle.results)
+
+        lap_df = get_multiple_laps_telemetry(
+            bundle.telemetry, selection.driver, selection.laps
+        )
+        summary_df = get_lap_summary(
+            bundle.telemetry, selection.driver, selection.laps
+        )
+        if lap_df.empty:
+            st.warning("No telemetry data found for the selected laps.")
+            st.stop()
+
+        Dashboard(
+            session=session,
+            driver=selection.driver,
+            lap_df=lap_df,
+            summary_df=summary_df,
+            results=bundle.results,
+            selected_laps=selection.laps,
+        ).render()
+
+
+F1App().run()

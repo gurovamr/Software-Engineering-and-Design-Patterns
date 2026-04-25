@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,12 +7,14 @@ import pandas as pd
 import fastf1
 
 
-# -----------------------------
-# Request / Response Data Types
-# -----------------------------
-
 @dataclass(frozen=True)
 class SessionRequest:
+    """
+    Immutable value object describing a single F1 session to load.
+
+    Pattern: Value Object (DDD)
+    """
+
     year: int
     event: str | int
     session_code: str  # e.g. "R", "Q", "FP1", "FP2", "S"
@@ -27,6 +27,13 @@ class SessionRequest:
 
 @dataclass
 class TelemetryBundle:
+    """
+    Aggregates all normalized DataFrames produced from one F1 session load.
+
+    Pattern: Data Transfer Object (DTO)
+    Principle: SRP – pure data container, no business logic except persistence
+    """
+
     session_info: dict
     results: pd.DataFrame
     laps: pd.DataFrame
@@ -37,9 +44,7 @@ class TelemetryBundle:
     race_control_messages: pd.DataFrame
 
     def save(self, output_dir: str | Path) -> None:
-        """
-        Save all normalized tables to parquet files.
-        """
+        """Persists all normalized tables to parquet files."""
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -54,19 +59,11 @@ class TelemetryBundle:
         )
 
 
-# -----------------------------
-# Abstraction
-# -----------------------------
-
 class TelemetrySource(ABC):
     @abstractmethod
     def load_bundle(self, request: SessionRequest) -> TelemetryBundle:
         raise NotImplementedError
 
-
-# -----------------------------
-# FastF1 Adapter
-# -----------------------------
 
 class FastF1Source(TelemetrySource):
     """
@@ -95,6 +92,16 @@ class FastF1Source(TelemetrySource):
         except Exception:
             return pd.DataFrame()
 
+    @staticmethod
+    def build_driver_map(results_df: pd.DataFrame) -> dict[str, str]:
+        """Map DriverNumber → Driver abbreviation from a results DataFrame."""
+        if results_df.empty or not {"DriverNumber", "Driver"}.issubset(results_df.columns):
+            return {}
+        return dict(zip(
+            results_df["DriverNumber"].astype(str),
+            results_df["Driver"].astype(str),
+        ))
+
     def load_bundle(self, request: SessionRequest) -> TelemetryBundle:
         session = fastf1.get_session(
             request.year,
@@ -109,14 +116,12 @@ class FastF1Source(TelemetrySource):
             messages=request.include_messages
         )
 
-        results_df = self._prepare_results(session)
+        results_df = self._normalize_results(session)
 
-        driver_map = {}
-        if not results_df.empty and {"DriverNumber", "Driver"}.issubset(results_df.columns):
-            driver_map = dict(zip(results_df["DriverNumber"].astype(str), results_df["Driver"].astype(str)))
+        driver_map = self.build_driver_map(results_df)
 
-        laps_df = self._prepare_laps(session, driver_map=driver_map)
-        telemetry_df = self._prepare_telemetry(
+        laps_df = self._normalize_laps(session, driver_map=driver_map)
+        telemetry_df = self._build_telemetry_dataframe(
             session=session,
             laps_df=laps_df,
             drivers=request.drivers,
@@ -142,7 +147,7 @@ class FastF1Source(TelemetrySource):
         )
 
     @staticmethod
-    def _prepare_results(session) -> pd.DataFrame:
+    def _normalize_results(session) -> pd.DataFrame:
         try:
             results = session.results.copy()
         except Exception:
@@ -170,7 +175,7 @@ class FastF1Source(TelemetrySource):
         return results
 
     @staticmethod
-    def _prepare_laps(session, driver_map: dict[str, str] | None = None) -> pd.DataFrame:
+    def _normalize_laps(session, driver_map: dict[str, str] | None = None) -> pd.DataFrame:
         try:
             laps = session.laps.copy()
         except Exception:
@@ -193,7 +198,7 @@ class FastF1Source(TelemetrySource):
 
         return laps
 
-    def _prepare_telemetry(
+    def _build_telemetry_dataframe(
     self,
     session,
     laps_df: pd.DataFrame,
@@ -235,7 +240,7 @@ class FastF1Source(TelemetrySource):
                 lap_candidates = [lap for _, lap in driver_laps.iterlaps()]
 
             for lap in lap_candidates:
-                lap_frame = self._build_single_lap_telemetry(
+                lap_frame = self._merge_single_lap_telemetry(
                     session=session,
                     lap=lap,
                     add_distance=add_distance,
@@ -258,7 +263,7 @@ class FastF1Source(TelemetrySource):
         return telemetry
 
     @staticmethod
-    def _build_single_lap_telemetry(
+    def _merge_single_lap_telemetry(
         session,
         lap,
         add_distance: bool,
@@ -313,9 +318,222 @@ class FastF1Source(TelemetrySource):
         return merged
 
 
-# -----------------------------
-# Simple facade function
-# -----------------------------
+
+
+class F1SessionBundleCache:
+    """
+    Caches FastF1 session objects and provides high-level loading methods.
+
+    Responsibilities:
+    - cache session objects to avoid redundant session.load() calls
+    - quick-load (laps only, no telemetry) for dashboard overview
+    - on-demand telemetry extraction per driver
+    - preload into FastF1 disk cache
+    """
+
+    def __init__(self, cache_dir: str | Path = "cache") -> None:
+        self._cache_dir = Path(cache_dir)
+        self._cache: dict[str, tuple] = {}
+
+    def _make_cache_key(self, year: int, event: str | int, session_code: str) -> str:
+        return f"{year}|{event}|{session_code}"
+
+    def load_quick(
+        self,
+        year: int,
+        event: str | int,
+        session_code: str,
+    ) -> TelemetryBundle:
+        """
+        Fast session load: results + laps only, no telemetry processing.
+        Caches the session object for later per-driver telemetry extraction.
+        """
+        source = FastF1Source(cache_dir=self._cache_dir)
+        session = fastf1.get_session(year, event, session_code)
+        session.load(laps=True, telemetry=False, weather=False, messages=False)
+
+        self._cache[self._make_cache_key(year, event, session_code)] = (session, source)
+
+        results_df = source._normalize_results(session)
+        driver_map = source.build_driver_map(results_df)
+        laps_df = source._normalize_laps(session, driver_map=driver_map)
+
+        return TelemetryBundle(
+            session_info=dict(session.session_info),
+            results=results_df.reset_index(drop=True),
+            laps=laps_df.reset_index(drop=True),
+            weather=pd.DataFrame(),
+            telemetry=pd.DataFrame(),
+            track_status=pd.DataFrame(),
+            session_status=pd.DataFrame(),
+            race_control_messages=pd.DataFrame(),
+        )
+
+    def load_driver_telemetry(
+        self,
+        year: int,
+        event: str | int,
+        session_code: str,
+        driver: str,
+    ) -> pd.DataFrame:
+        """
+        Extract telemetry for a single driver.
+        Reuses cached session objects; loads telemetry additively if needed.
+        """
+        key = self._make_cache_key(year, event, session_code)
+        cached = self._cache.get(key)
+
+        if cached:
+            session, source = cached
+        else:
+            source = FastF1Source(cache_dir=self._cache_dir)
+            session = fastf1.get_session(year, event, session_code)
+            self._cache[key] = (session, source)
+
+        # Additive — no-op if telemetry already loaded
+        session.load(laps=True, telemetry=True, weather=False, messages=False)
+
+        results_df = source._normalize_results(session)
+        driver_map = source.build_driver_map(results_df)
+        laps_df = source._normalize_laps(session, driver_map=driver_map)
+
+        return source._build_telemetry_dataframe(
+            session=session,
+            laps_df=laps_df,
+            drivers=[driver],
+            fastest_lap_only=False,
+            add_distance=True,
+            driver_map=driver_map,
+        )
+
+    def load_full(
+        self,
+        year: int,
+        event: str | int,
+        session_code: str,
+        drivers: Optional[list[str]] = None,
+        fastest_lap_only: bool = False,
+        include_weather: bool = True,
+        include_messages: bool = False,
+        add_distance: bool = True,
+    ) -> TelemetryBundle:
+        """Full load including telemetry — used by notebooks/Streamlit app."""
+        source = FastF1Source(cache_dir=self._cache_dir)
+        request = SessionRequest(
+            year=year,
+            event=event,
+            session_code=session_code,
+            drivers=drivers,
+            fastest_lap_only=fastest_lap_only,
+            include_weather=include_weather,
+            include_messages=include_messages,
+            add_distance=add_distance,
+        )
+        return source.load_bundle(request)
+
+    @staticmethod
+    def preload(year: int, event: str, session_code: str, cache_dir: str | Path = "cache"):
+        """Download laps + telemetry into FastF1 disk cache (no merging)."""
+        cache_path = Path(cache_dir)
+        cache_path.mkdir(parents=True, exist_ok=True)
+        fastf1.Cache.enable_cache(str(cache_path))
+
+        session = fastf1.get_session(year, event, session_code)
+        session.load(laps=True, telemetry=True, weather=False, messages=False)
+
+
+
+class F1ScheduleService:
+    """
+    Provides event schedule lookups from FastF1.
+
+    Pattern: Monostate – every instance shares the same event cache dict,
+    so results fetched by one caller are immediately visible to all others
+    without requiring a global Singleton reference.
+    """
+
+    _shared_state: dict = {"_event_cache": {}, "_cache_dir": "cache"}
+
+    def __init__(self) -> None:
+        self.__dict__ = F1ScheduleService._shared_state
+
+    def get_events(self, year: int) -> list[str]:
+        """Return event names from the official schedule (cached)."""
+        if year in self._event_cache:
+            return self._event_cache[year]
+
+        fastf1.Cache.enable_cache(self._cache_dir)
+        try:
+            schedule = fastf1.get_event_schedule(year, include_testing=False)
+        except Exception:
+            return []
+
+        if "EventName" not in schedule.columns:
+            return []
+
+        events = list(dict.fromkeys(schedule["EventName"].dropna().astype(str).tolist()))
+        self._event_cache[year] = events
+        return events
+
+    def get_events_with_laps(
+        self,
+        year: int,
+        session_code: str,
+        *,
+        cache_dir: str | Path = "cache",
+    ) -> list[str]:
+        """Return events that have non-empty lap data available."""
+        cache_path = Path(cache_dir)
+        cache_path.mkdir(parents=True, exist_ok=True)
+        fastf1.Cache.enable_cache(str(cache_path))
+
+        try:
+            schedule = fastf1.get_event_schedule(year, include_testing=False)
+        except Exception:
+            return []
+
+        if "EventName" not in schedule.columns:
+            return []
+
+        available: list[str] = []
+        for event_name in schedule["EventName"].dropna().astype(str).tolist():
+            try:
+                session = fastf1.get_session(year, event_name, session_code)
+                session.load(laps=True, telemetry=False, weather=False, messages=False)
+                if session.laps is not None and not session.laps.empty:
+                    available.append(event_name)
+            except Exception:
+                continue
+
+        return list(dict.fromkeys(available))
+
+
+
+_default_session_cache = F1SessionBundleCache()
+
+
+
+
+def load_session_quick(
+    year: int,
+    event: str | int,
+    session_code: str,
+    *,
+    cache_dir: str | Path = "cache",
+) -> TelemetryBundle:
+    return _default_session_cache.load_quick(year, event, session_code)
+
+
+def load_driver_telemetry(
+    year: int,
+    event: str | int,
+    session_code: str,
+    driver: str,
+    *,
+    cache_dir: str | Path = "cache",
+) -> pd.DataFrame:
+    return _default_session_cache.load_driver_telemetry(year, event, session_code, driver)
+
 
 def load_f1_data(
     year: int,
@@ -327,94 +545,30 @@ def load_f1_data(
     fastest_lap_only: bool = False,
     include_weather: bool = True,
     include_messages: bool = False,
-    add_distance: bool = True
+    add_distance: bool = True,
 ) -> TelemetryBundle:
-    """
-    One-call convenience API for notebooks/apps.
-    """
-    source = FastF1Source(cache_dir=cache_dir)
-    request = SessionRequest(
-        year=year,
-        event=event,
-        session_code=session_code,
+    return _default_session_cache.load_full(
+        year, event, session_code,
         drivers=drivers,
         fastest_lap_only=fastest_lap_only,
         include_weather=include_weather,
         include_messages=include_messages,
-        add_distance=add_distance
+        add_distance=add_distance,
     )
-    return source.load_bundle(request)
+
+
+def cache_session(year: int, event: str, session_code: str, cache_dir: str | Path = "cache"):
+    F1SessionBundleCache.preload(year, event, session_code, cache_dir)
+
+
+def get_schedule_events(year: int) -> list[str]:
+    return F1ScheduleService().get_events(year)
 
 
 def get_events_with_available_laps(
     year: int,
     session_code: str,
     *,
-    cache_dir: str | Path = "cache"
+    cache_dir: str | Path = "cache",
 ) -> list[str]:
-    """
-    Return event names for which FastF1 can load non-empty lap data.
-
-    This is useful for UI dropdowns so users can select sessions that are
-    likely to have telemetry instead of guessing event names manually.
-    """
-    cache_path = Path(cache_dir)
-    cache_path.mkdir(parents=True, exist_ok=True)
-    fastf1.Cache.enable_cache(str(cache_path))
-
-    try:
-        schedule = fastf1.get_event_schedule(year, include_testing=False)
-    except Exception:
-        return []
-
-    if "EventName" not in schedule.columns:
-        return []
-
-    available_events: list[str] = []
-
-    for event_name in schedule["EventName"].dropna().astype(str).tolist():
-        try:
-            session = fastf1.get_session(year, event_name, session_code)
-            session.load(laps=True, telemetry=False, weather=False, messages=False)
-            laps = session.laps
-            if laps is not None and not laps.empty:
-                available_events.append(event_name)
-        except Exception:
-            continue
-
-    # Preserve order while removing duplicates.
-    return list(dict.fromkeys(available_events))
-
-
-def get_schedule_events(year: int) -> list[str]:
-    """
-    Return event names from the official FastF1 event schedule.
-    """
-    try:
-        schedule = fastf1.get_event_schedule(year, include_testing=False)
-    except Exception:
-        return []
-
-    if "EventName" not in schedule.columns:
-        return []
-
-    events = schedule["EventName"].dropna().astype(str).tolist()
-    return list(dict.fromkeys(events))
-
-
-if __name__ == "__main__":
-    bundle = load_f1_data(
-        year=2024,
-        event="Monza",
-        session_code="Q",
-        drivers=["VER", "LEC"],
-        fastest_lap_only=True,
-        cache_dir="cache"
-    )
-
-    print("Session:", bundle.session_info.get("Meeting", {}))
-    print("Results shape:", bundle.results.shape)
-    print("Laps shape:", bundle.laps.shape)
-    print("Telemetry shape:", bundle.telemetry.shape)
-
-    bundle.save("data/processed/2024_monza_q")
+    return F1ScheduleService().get_events_with_laps(year, session_code, cache_dir=cache_dir)
