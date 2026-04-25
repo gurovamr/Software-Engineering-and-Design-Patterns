@@ -1,6 +1,7 @@
-import hashlib
-import secrets
 from typing import Optional
+
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError, InvalidHash
 
 from src.database.base_repository import BaseRepository
 
@@ -20,8 +21,35 @@ class UserRepository(BaseRepository):
     """
 
     def ensure_schema(self) -> None:
-        """Adds password_hash column if missing (safe migration)."""
+        """Creates users and login_events tables if missing, adds password_hash column if needed."""
         with self._connect() as conn:
+            # Create users table if it doesn't exist
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT UNIQUE NOT NULL,
+                    password_hash TEXT,
+                    favorite_driver TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            
+            # Create login_events table if it doesn't exist
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS login_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    login_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+                """
+            )
+            
+            # Add password_hash column if missing (for existing databases)
             cols = [r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
             if "password_hash" not in cols:
                 conn.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
@@ -65,6 +93,7 @@ class UserRepository(BaseRepository):
 
     def log_login(self, user_id: int) -> None:
         """Records a login event."""
+        self.ensure_schema()
         with self._connect() as conn:
             conn.execute(
                 "INSERT INTO login_events (user_id, login_at) VALUES (?, datetime('now'))",
@@ -73,15 +102,17 @@ class UserRepository(BaseRepository):
 
     @staticmethod
     def hash_password(password: str) -> str:
-        """Hashes a password with a random salt using SHA-256."""
-        salt = secrets.token_hex(16)
-        h = hashlib.sha256((salt + password).encode()).hexdigest()
-        return f"{salt}${h}"
+        """Hashes a password using Argon2id (includes salt and parameters in the output)."""
+        ph = PasswordHasher()
+        return ph.hash(password)
 
     @staticmethod
     def verify_password(password: str, stored_hash: str) -> bool:
-        """Returns True if the password matches the stored salt$hash."""
-        if not stored_hash or "$" not in stored_hash:
+        """Returns True if the password matches the Argon2id hash."""
+        if not stored_hash:
             return False
-        salt, h = stored_hash.split("$", 1)
-        return hashlib.sha256((salt + password).encode()).hexdigest() == h
+        ph = PasswordHasher()
+        try:
+            return ph.verify(stored_hash, password)
+        except (VerifyMismatchError, InvalidHash):
+            return False

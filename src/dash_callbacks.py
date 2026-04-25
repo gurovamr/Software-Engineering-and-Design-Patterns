@@ -1,10 +1,9 @@
-from datetime import date
-
 import pandas as pd
 from dash import Input, Output, State, no_update, callback_context, html
 import plotly.graph_objects as go
 
-from src.data_loading import load_session_quick, load_driver_telemetry, get_schedule_events
+from src.data_loading import load_session_quick, load_driver_telemetry
+from src.database import Tracks
 from src.telemetry_metrics import (
     get_available_drivers,
     get_driver_laps,
@@ -16,7 +15,6 @@ from src.telemetry_metrics import (
 )
 from src.visualization import (
     BaseChart,
-    F1ColorPalette,
     SpeedChart,
     ThrottleBrakeChart,
     GearChart,
@@ -198,7 +196,7 @@ class DashboardCallbackRegistry:
             if not year:
                 return [], None
             year = int(year)
-            events = get_schedule_events(year)
+            events = Tracks.from_schedule(year)
             options = [{"label": e, "value": e} for e in events]
             default = events[0] if events else None
             return options, default
@@ -322,6 +320,14 @@ class DashboardCallbackRegistry:
                     {"background": "#3a2a1a", "color": "#fbbf24", "padding": "6px 16px",
                      "textAlign": "center", "fontSize": "0.85em"},
                     False,
+                )
+            # Check for error state in progress message
+            if isinstance(status.get("progress"), str) and status["progress"].startswith("Error:"):
+                return (
+                    status["progress"],
+                    {"background": "#3a1a1a", "color": "#ef4444", "padding": "6px 16px",
+                     "textAlign": "center", "fontSize": "0.85em"},
+                    True,
                 )
             return "", {"display": "none"}, False
 

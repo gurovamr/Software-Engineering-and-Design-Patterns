@@ -594,15 +594,21 @@ class DriverComparisonChart(TwoDriverChart):
         t1 = tel1.sort_values("Distance").copy()
         t2 = tel2.sort_values("Distance").copy()
 
-        t1_sec = (t1["Time"].dt.total_seconds().values
-                  if hasattr(t1["Time"].iloc[0], "total_seconds")
-                  else pd.to_numeric(t1["Time"], errors="coerce").values)
-        t2_sec = (t2["Time"].dt.total_seconds().values
-                  if hasattr(t2["Time"].iloc[0], "total_seconds")
-                  else pd.to_numeric(t2["Time"], errors="coerce").values)
+        def _time_to_seconds(series: pd.Series) -> np.ndarray:
+            if series.empty or series.isna().all():
+                return np.array([], dtype=float)
+            if pd.api.types.is_timedelta64_dtype(series):
+                return series.dt.total_seconds().to_numpy()
+            return pd.to_numeric(series, errors="coerce").to_numpy()
+        t1_sec = _time_to_seconds(t1["Time"])
+        t2_sec = _time_to_seconds(t2["Time"])
+        if len(t1_sec) == 0 or len(t2_sec) == 0:
+            return np.array([]), np.array([])
 
         dist_min = max(t1["Distance"].min(), t2["Distance"].min())
         dist_max = min(t1["Distance"].max(), t2["Distance"].max())
+        if dist_min >= dist_max:
+            return np.array([]), np.array([])
         ref_dist = np.linspace(dist_min, dist_max, min(500, len(t1)))
 
         time1_interp = np.interp(ref_dist, t1["Distance"].values, t1_sec)

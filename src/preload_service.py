@@ -4,7 +4,8 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 
-from src.data_loading import cache_session, get_schedule_events
+from src.data_loading import cache_session
+from src.database import Tracks
 from src.database.sync_repository import SyncRepository
 
 DB_PATH = "data/f1.sqlite"
@@ -49,7 +50,7 @@ class DataLoader:
             self._running = True
             self._done = False
             self._progress = "Starting sync\u2026"
-        threading.Thread(target=self._run_full_sync, daemon=True).start()
+        threading.Thread(target=self._run_full_sync, args=(year,), daemon=True).start()
 
     def get_sync_status(self) -> dict:
         """Returns a snapshot of the current sync state."""
@@ -89,7 +90,7 @@ class DataLoader:
     def _sync_year_sessions(self, year: int, sync_repo: SyncRepository) -> None:
         """Syncs a single year (called by _sync_all)."""
         state = sync_repo.get_state(year)
-        remote_events = get_schedule_events(year)
+        remote_events = Tracks.from_schedule(year)
         expected_keys = {self._make_session_task_key(ev, sc) for ev in remote_events for sc in self.SESSIONS}
         synced_keys = set(state["synced_keys"]) if state else set()
 
@@ -125,17 +126,24 @@ class DataLoader:
                 return task, False
 
         SAVE_EVERY = 10
+        all_ok = True
         with ThreadPoolExecutor(max_workers=self.MAX_WORKERS) as pool:
             futures = {pool.submit(_download, t): t for t in tasks}
             for i, future in enumerate(as_completed(futures), 1):
                 task, ok = future.result()
-                synced_keys.add(self._make_session_task_key(task[1], task[2]))
+                if ok:
+                    synced_keys.add(self._make_session_task_key(task[1], task[2]))
+                else:
+                    all_ok = False
                 with self._state_lock:
                     self._progress = f"Caching {year} ({i}/{self._total})"
                     self._current = i
                 if i % SAVE_EVERY == 0 or i == len(tasks):
                     sync_repo.save_state(year, sorted(synced_keys), complete=False)
 
-        sync_repo.mark_complete(year, sorted(synced_keys))
+        if all_ok:
+            sync_repo.mark_complete(year, sorted(synced_keys))
+        else:
+            sync_repo.save_state(year, sorted(synced_keys), complete=False)
 
     # DB concerns fully delegated to SyncRepository – no raw SQLite here.

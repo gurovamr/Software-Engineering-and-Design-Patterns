@@ -14,11 +14,14 @@ class DriverRepository(BaseRepository):
 
     def get_all_driver_codes(self) -> list[str]:
         """Returns all unique driver codes found in the results table."""
-        with self._connect() as conn:
-            rows = conn.execute(
-                "SELECT DISTINCT driver_code FROM drivers ORDER BY driver_code"
-            ).fetchall()
-        return [row[0] for row in rows if row[0]]
+        try:
+            with self._connect() as conn:
+                rows = conn.execute(
+                    "SELECT DISTINCT driver_code FROM drivers ORDER BY driver_code"
+                ).fetchall()
+            return [row[0] for row in rows if row[0]]
+        except Exception:
+            return []
 
     def get_popular_drivers(self, limit: int = 3) -> list[str]:
         """
