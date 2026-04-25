@@ -1,4 +1,5 @@
 import json
+import sqlite3
 
 from src.database.base_repository import BaseRepository
 
@@ -17,15 +18,26 @@ class SyncRepository(BaseRepository):
     """
 
     def ensure_schema(self) -> None:
-        """Adds synced_events_json column to sync_state if missing."""
+        """Creates sync_state table if missing; adds synced_events_json column if absent."""
         with self._connect() as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS sync_state (
+                    year                INTEGER PRIMARY KEY,
+                    session_codes_json  TEXT    DEFAULT '[]',
+                    synced_events_json  TEXT    DEFAULT '[]',
+                    complete            INTEGER DEFAULT 0,
+                    last_sync_at        TIMESTAMP
+                )
+                """
+            )
             cols = {r[1] for r in conn.execute("PRAGMA table_info(sync_state)").fetchall()}
             if "synced_events_json" not in cols:
                 try:
                     conn.execute(
                         "ALTER TABLE sync_state ADD COLUMN synced_events_json TEXT DEFAULT '[]'"
                     )
-                except Exception:
+                except sqlite3.OperationalError:
                     pass
 
     def get_state(self, year: int) -> dict | None:

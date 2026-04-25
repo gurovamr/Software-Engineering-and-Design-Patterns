@@ -3,12 +3,13 @@ from __future__ import annotations
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
+from pathlib import Path
 
 from src.data_loading import cache_session
-from src.database import Tracks
+from src.database import F1TrackQuery, TrackRepository
 from src.database.sync_repository import SyncRepository
 
-DB_PATH = "data/f1.sqlite"
+DB_PATH = str(Path(__file__).resolve().parent.parent / "data" / "f1.sqlite")
 
 
 class DataLoader:
@@ -24,6 +25,7 @@ class DataLoader:
     SESSIONS = ["R", "Q"]
     START_YEAR = 2018
     MAX_WORKERS = 8
+    SAVE_EVERY = 10
 
     # ── Singleton constructor ───────────────────────────────────────────────
 
@@ -43,7 +45,7 @@ class DataLoader:
     # ── Public API ─────────────────────────────────────────────────────────
 
     def begin_sync(self, year: int | None = None) -> None:
-        """Starts sync: current year first, then backwards to START_YEAR."""
+        """Starts sync from the given year (or current year) backwards to START_YEAR."""
         with self._state_lock:
             if self._running:
                 return
@@ -69,12 +71,12 @@ class DataLoader:
     def _make_session_task_key(cls, event: str, session_code: str) -> str:
         return f"{event}|{session_code}"
 
-    def _run_full_sync(self) -> None:
-        """Syncs current year first, then backwards to START_YEAR."""
+    def _run_full_sync(self, year: int | None = None) -> None:
+        """Syncs from the given year (or current year) backwards to START_YEAR."""
         try:
             _sync_repo = SyncRepository(DB_PATH)
             _sync_repo.ensure_schema()
-            current_year = date.today().year
+            current_year = year if year is not None else date.today().year
             years = [current_year] + list(range(current_year - 1, self.START_YEAR - 1, -1))
             for year in years:
                 self._sync_year_sessions(year, _sync_repo)
@@ -90,7 +92,14 @@ class DataLoader:
     def _sync_year_sessions(self, year: int, sync_repo: SyncRepository) -> None:
         """Syncs a single year (called by _sync_all)."""
         state = sync_repo.get_state(year)
-        remote_events = Tracks.from_schedule(year)
+
+        # Cache-first: serve event list from local DB; only call FastF1 if empty
+        track_repo = TrackRepository(DB_PATH)
+        remote_events = track_repo.get_events(year)
+        if not remote_events:
+            remote_events = F1TrackQuery.from_schedule(year)
+            if remote_events:
+                track_repo.upsert_event_names(year, remote_events)
         expected_keys = {self._make_session_task_key(ev, sc) for ev in remote_events for sc in self.SESSIONS}
         synced_keys = set(state["synced_keys"]) if state else set()
 
@@ -125,7 +134,7 @@ class DataLoader:
             except Exception:
                 return task, False
 
-        SAVE_EVERY = 10
+        SAVE_EVERY = self.SAVE_EVERY
         all_ok = True
         with ThreadPoolExecutor(max_workers=self.MAX_WORKERS) as pool:
             futures = {pool.submit(_download, t): t for t in tasks}

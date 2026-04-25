@@ -5,8 +5,15 @@ from pathlib import Path
 from src.data_loading import get_events_with_available_laps, get_schedule_events
 
 
-class Tracks:
-    """Access helper for track/event metadata used by the app/UI layer."""
+class F1TrackQuery:
+    """
+    FastF1-backed query helper for track/event metadata.
+
+    Reads from the FastF1 schedule or the local cache directory rather than
+    the local SQLite DB.  Use TrackRepository for DB-persisted event records.
+
+    Pattern: Query Object / Static Helper
+    """
 
     @staticmethod
     def from_schedule(year: int) -> list[str]:

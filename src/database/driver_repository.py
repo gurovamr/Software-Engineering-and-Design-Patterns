@@ -6,14 +6,29 @@ class DriverRepository(BaseRepository):
     Handles all driver-related database queries.
 
     Responsibilities:
-    - Retrieve all unique driver codes from telemetry sessions
-    - Determine popular drivers by login frequency
+    - Create and migrate the drivers schema
+    - Retrieve all unique driver codes stored locally
 
     Pattern: Repository
     """
 
+    def ensure_schema(self) -> None:
+        """Creates the drivers table if it does not already exist."""
+        with self._connect() as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS drivers (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    driver_code TEXT    UNIQUE NOT NULL,
+                    full_name   TEXT,
+                    team        TEXT,
+                    updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+
     def get_all_driver_codes(self) -> list[str]:
-        """Returns all unique driver codes found in the results table."""
+        """Returns all unique driver codes found in the drivers table."""
         try:
             with self._connect() as conn:
                 rows = conn.execute(
@@ -22,23 +37,3 @@ class DriverRepository(BaseRepository):
             return [row[0] for row in rows if row[0]]
         except Exception:
             return []
-
-    def get_popular_drivers(self, limit: int = 3) -> list[str]:
-        """
-        Returns the most frequently chosen driver codes as favorites.
-
-        Uses the users table to count how often each driver was selected.
-        """
-        with self._connect() as conn:
-            rows = conn.execute(
-                """
-                SELECT favorite_driver, COUNT(*) as cnt
-                FROM users
-                WHERE favorite_driver IS NOT NULL AND favorite_driver != ''
-                GROUP BY favorite_driver
-                ORDER BY cnt DESC
-                LIMIT ?
-                """,
-                (limit,),
-            ).fetchall()
-        return [row[0] for row in rows]

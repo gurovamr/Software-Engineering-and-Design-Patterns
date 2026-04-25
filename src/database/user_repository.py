@@ -1,8 +1,5 @@
 from typing import Optional
 
-from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError, InvalidHash
-
 from src.database.base_repository import BaseRepository
 
 
@@ -93,26 +90,29 @@ class UserRepository(BaseRepository):
 
     def log_login(self, user_id: int) -> None:
         """Records a login event."""
-        self.ensure_schema()
         with self._connect() as conn:
             conn.execute(
                 "INSERT INTO login_events (user_id, login_at) VALUES (?, datetime('now'))",
                 (user_id,),
             )
 
-    @staticmethod
-    def hash_password(password: str) -> str:
-        """Hashes a password using Argon2id (includes salt and parameters in the output)."""
-        ph = PasswordHasher()
-        return ph.hash(password)
+    def get_popular_drivers(self, limit: int = 3) -> list[str]:
+        """
+        Returns the most frequently chosen driver codes across all users.
 
-    @staticmethod
-    def verify_password(password: str, stored_hash: str) -> bool:
-        """Returns True if the password matches the Argon2id hash."""
-        if not stored_hash:
-            return False
-        ph = PasswordHasher()
-        try:
-            return ph.verify(stored_hash, password)
-        except (VerifyMismatchError, InvalidHash):
-            return False
+        Belongs here because it reads user preference data, not driver records.
+        """
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT favorite_driver, COUNT(*) as cnt
+                FROM users
+                WHERE favorite_driver IS NOT NULL AND favorite_driver != ''
+                GROUP BY favorite_driver
+                ORDER BY cnt DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [row[0] for row in rows]
+

@@ -3,7 +3,7 @@ from dash import Input, Output, State, no_update, callback_context, html
 import plotly.graph_objects as go
 
 from src.data_loading import load_session_quick, load_driver_telemetry
-from src.database import Tracks
+from src.database import F1TrackQuery
 from src.telemetry_metrics import (
     get_available_drivers,
     get_driver_laps,
@@ -196,7 +196,7 @@ class DashboardCallbackRegistry:
             if not year:
                 return [], None
             year = int(year)
-            events = Tracks.from_schedule(year)
+            events = F1TrackQuery.from_schedule(year)
             options = [{"label": e, "value": e} for e in events]
             default = events[0] if events else None
             return options, default

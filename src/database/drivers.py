@@ -7,8 +7,15 @@ import pandas as pd
 from src.data_loading import load_f1_data
 
 
-class Drivers:
-    """Access helper for driver-related data used by the app/UI layer."""
+class F1DriverQuery:
+    """
+    FastF1-backed query helper for driver lists.
+
+    Reads from loaded session data (laps / results DataFrames) rather than
+    the local SQLite DB.  Use DriverRepository for DB-persisted driver codes.
+
+    Pattern: Query Object / Static Helper
+    """
 
     @staticmethod
     def from_laps(laps_df: pd.DataFrame) -> list[str]:
