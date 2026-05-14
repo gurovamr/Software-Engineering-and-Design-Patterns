@@ -87,8 +87,9 @@ cd Software-Engineering-and-Design-Patterns
 
 ## Usage
 
+```sh
 python -m streamlit run app.py
-.... 
+```
 
 [Back to top](#readme-top)
 
