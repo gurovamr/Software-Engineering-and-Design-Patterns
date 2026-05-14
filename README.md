@@ -4,8 +4,14 @@
 
 # Software Engineering and Design Patterns
 
+![GitHub Repo Badge](https://img.shields.io/badge/github-repo-blue?logo=github)
+[![License: Unlicense](https://img.shields.io/badge/License-Unlicense-blue.svg)](./LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
+
 This is the group project for the course of *Software Engineering and Design Patterns*, for the Spring 2026 semester of the ZHAW Master in Life Sciences.
 
+The main purpose of this project is to apply the theory of the course, while incrementally designing and documenting a software system across multiple development stages.
 
 
 </div>
@@ -27,40 +33,37 @@ This is the group project for the course of *Software Engineering and Design Pat
 
 ## About
 
-This repository is the final project from the ZHAW course of software engineering and design patterns.
-
 Topics that will be covered include:
 
-- Object-oriented design principles
-- ???
-- ??? 
+- Object-Oriented Design
+- Software Modeling
+- Design patterns
+- Graphic User Interface
 
 [Back to top](#readme-top)
 
 ## Goals
 
-- Build a dashboard for the visualization of formula 1 driver´s performance based on real examples
-- ... 
+The goal of this project is to build a dashboard for the visualization of Formula 1 driver´s telemetry, based on real life data.
+
+Formula 1 telemetry is the real‑time collection and wireless transmission of hundreds of sensor signals from an F1 car to engineers (at the pit wall and team HQ) so they can monitor, diagnose, and optimise performance and reliability during sessions and races.
+
+For the purpose of this project we have restricted our output to the throttle and brake pressures, which are the two most important aspects of racing telemetry: they directly control the car’s two fundamental speed changes, deceleration into a corner and acceleration out of it, so small differences in their timing, magnitude, and smoothness produce the largest lap‑time gains or losses.
 
 [Back to top](#readme-top)
 
 ## Project Structure
 
-Planned structure (no structure discussed for now):
-
 ```text
-Software-Engineering-and-Design-Patterns/
-	README.md
-	data/
-		data_example.cvs
-	folder1/
-		example1/
-		example2/
-		example3/
-	folder1/
-		example1/
-		example2/
-		example3/
+.
+├── notebooks/        # Notebooks for data exploration, prototyping, and analysis
+├── src/              # Source code for the application's core logic and design pattern implementations
+├── .gitignore        # Rules for excluding local, generated, and environment-specific files from Git
+├── LICENSE           # License for this repository
+├── README.md         # Project documentation, setup, and usage instructions
+├── app.py            # Primary application entry point
+├── app_dash.py       # Dashboard application entry point
+└── environment.yml   # Conda environment configuration and dependencies
 ```
 
 [Back to top](#readme-top)
@@ -92,8 +95,10 @@ python -m streamlit run app.py
 ## Roadmap
 
 - [x] Initialize repository and README backbone
-- [ ] Add data
-- [ ] Build a dashboard
+- [x] Add data
+- [x] Build a dashboard
+- [x] Add local storage functionality (database).
+- [x] Implement OOD principles for applicable entities
 
 [Back to top](#readme-top)
 
