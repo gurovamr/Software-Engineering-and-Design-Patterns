@@ -73,7 +73,7 @@ For the purpose of this project we have restricted our output to the throttle an
 ### Prerequisites
 
 - Git
-- A code editor
+- Conda
 - Python 3.10+
 
 ### Installation
@@ -81,6 +81,7 @@ For the purpose of this project we have restricted our output to the throttle an
 ```sh
 git clone https://github.com/gurovamr/Software-Engineering-and-Design-Patterns
 cd Software-Engineering-and-Design-Patterns
+conda env create -f environment.yml
 ```
 
 [Back to top](#readme-top)
