@@ -19,11 +19,12 @@ class BaseRepository(ABC):
     """
 
     def __init__(self, db_path: str | Path) -> None:
-        self._db_path = str(db_path)
+        self._db_path = Path(db_path)
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
         """Opens a SQLite connection, commits on success, always closes."""
+        self._db_path.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(self._db_path)
         conn.execute("PRAGMA foreign_keys = ON")
         conn.row_factory = sqlite3.Row

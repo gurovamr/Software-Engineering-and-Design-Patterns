@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.data_loading import load_f1_data
+from src.data_loading import load_session_quick
 
 
 class F1DriverQuery:
@@ -52,14 +52,11 @@ class F1DriverQuery:
         cache_dir: str | Path = "cache",
     ) -> list[str]:
         """Return drivers available in a specific session."""
-        bundle = load_f1_data(
+        bundle = load_session_quick(
             year=year,
             event=event,
             session_code=session_code,
             cache_dir=cache_dir,
-            include_weather=False,
-            include_messages=False,
-            add_distance=False,
         )
 
         result_drivers = cls.from_results(bundle.results)

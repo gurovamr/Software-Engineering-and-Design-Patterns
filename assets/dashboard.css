@@ -1,0 +1,50 @@
+.Select-control,
+.Select-menu-outer,
+.Select-menu,
+.Select-value,
+.Select-input {
+    background-color: #0d0d1a !important;
+    border-color: #333 !important;
+    color: #e0e0e0 !important;
+}
+
+.Select-value-label,
+.Select-value span,
+.Select-option,
+.VirtualizedSelectOption {
+    color: #e0e0e0 !important;
+}
+
+.Select--single > .Select-control .Select-value,
+.Select--single > .Select-control .Select-value .Select-value-label {
+    color: #e0e0e0 !important;
+}
+
+.Select-control .Select-input > input {
+    color: #e0e0e0 !important;
+}
+
+.Select-placeholder {
+    color: #888 !important;
+}
+
+.Select-option.is-focused,
+.Select-option:hover {
+    background-color: #2a2a4e !important;
+    color: #ffffff !important;
+}
+
+.Select-option.is-selected {
+    background-color: #1a1a2e !important;
+    color: #ffffff !important;
+}
+
+.Select-arrow {
+    border-top-color: #e0e0e0 !important;
+}
+
+.is-disabled .Select-control,
+.is-disabled .Select-value-label {
+    color: #888 !important;
+    background-color: #1a1a2e !important;
+}

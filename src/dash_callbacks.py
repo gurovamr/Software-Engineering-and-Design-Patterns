@@ -3,8 +3,8 @@ from dash import Input, Output, State, no_update, callback_context, html
 import plotly.graph_objects as go
 from pathlib import Path
 
-from src.data_loading import load_session_quick, load_driver_telemetry
 from src.database import F1TrackQuery, TrackRepository
+from src.session_service import SessionService
 from src.telemetry_metrics import (
     get_available_drivers,
     get_driver_laps,
@@ -47,10 +47,12 @@ class DashboardCallbackRegistry:
         auth_service: AuthService,
         driver_service: DriverService,
         data_loader: DataLoader,
+        session_service: SessionService,
     ) -> None:
         self._auth = auth_service
         self._driver_repo = driver_service
         self._loader = data_loader
+        self._session_service = session_service
         self._session_cache: dict = {}
 
 
@@ -62,6 +64,8 @@ class DashboardCallbackRegistry:
     @staticmethod
     def _clean_telemetry_dataframe(telemetry: pd.DataFrame) -> pd.DataFrame:
         """Cleans Driver and LapNumber columns."""
+        if telemetry.empty or not {"Driver", "LapNumber"}.issubset(telemetry.columns):
+            return pd.DataFrame()
         df = telemetry.copy()
         df["Driver"] = df["Driver"].astype(str)
         df["LapNumber"] = pd.to_numeric(df["LapNumber"], errors="coerce")
@@ -183,6 +187,7 @@ class DashboardCallbackRegistry:
         auth = self._auth
         driver_repo = self._driver_repo
         loader = self._loader
+        session_service = self._session_service
         # Capture helpers for use inside nested callback functions
         instance = self
         cls = type(self)
@@ -210,17 +215,49 @@ class DashboardCallbackRegistry:
 
         @app.callback(
             Output("login-fav-driver", "options"),
-            Input("login-name", "value"),
+            Output("login-fav-driver", "disabled"),
+            Output("login-fav-driver", "placeholder"),
+            Output("driver-options-status", "children"),
+            Output("driver-options-status", "style"),
+            Input("driver-options-loader", "n_intervals"),
         )
-        def populate_driver_suggestions(_):
+        def populate_driver_suggestions(n_intervals):
             """Populates the favorite driver dropdown with known driver codes."""
+            status_style = {"color": "#888", "fontSize": "0.8em", "marginBottom": "16px"}
+            if n_intervals is None:
+                return [], True, "Loading drivers...", "Loading driver list...", status_style
+
             codes = driver_repo.get_all_driver_codes()
+            if len(codes) < 10:
+                codes = driver_repo.refresh_known_driver_codes(min_count=10)
             popular = driver_repo.get_popular_drivers(limit=3)
             options = []
             for code in codes:
                 label = f"{code} ★" if code in popular else code
                 options.append({"label": label, "value": code})
-            return options
+            if options:
+                if len(options) < 10:
+                    return (
+                        options,
+                        False,
+                        "Select driver...",
+                        f"Only {len(options)} cached drivers available. FastF1 refresh did not complete.",
+                        {**status_style, "color": "#fbbf24"},
+                    )
+                return (
+                    options,
+                    False,
+                    "Select driver...",
+                    f"{len(options)} drivers loaded.",
+                    {**status_style, "color": "#4ade80"},
+                )
+            return (
+                [],
+                True,
+                "Drivers unavailable",
+                "Driver list could not be loaded yet. You can still register without a favorite driver.",
+                {**status_style, "color": "#fbbf24"},
+            )
 
         @app.callback(
             Output("user-store", "data"),
@@ -242,13 +279,11 @@ class DashboardCallbackRegistry:
                 if not ok:
                     return no_update, msg
                 _, _, user = auth.login(name, password)
-                loader.begin_sync()
                 return user, msg
             else:
                 ok, msg, user = auth.login(name, password)
                 if not ok:
                     return no_update, msg
-                loader.begin_sync()
                 return user, ""
 
         @app.callback(
@@ -271,7 +306,6 @@ class DashboardCallbackRegistry:
         def toggle_pages(user_data):
             """Shows login or dashboard page based on login state."""
             if user_data and user_data.get("name"):
-                loader.begin_sync()
                 return (
                     {"display": "none"},
                     {"display": "block", "background": "#0d0d1a", "color": "#e0e0e0", "minHeight": "100vh"},
@@ -341,12 +375,104 @@ class DashboardCallbackRegistry:
         # ── Telemetry callbacks ─────────────────────────────────────
 
         @app.callback(
+            Output("session-load-status", "children", allow_duplicate=True),
+            Output("session-load-status", "style", allow_duplicate=True),
+            Output("full-event-load-status", "children", allow_duplicate=True),
+            Output("full-event-load-status", "style", allow_duplicate=True),
+            Output("telemetry-load-status", "children", allow_duplicate=True),
+            Output("telemetry-load-status", "style", allow_duplicate=True),
+            Input("year-input", "value"),
+            Input("event-input", "value"),
+            Input("session-input", "value"),
+            prevent_initial_call=True,
+        )
+        def reset_load_messages(_, __, ___):
+            session_style = {
+                "padding": "8px 12px", "marginBottom": "16px", "borderRadius": "6px",
+                "background": "#1a1a2e", "color": "#888", "border": "1px solid #333",
+            }
+            small_style = {"color": "#888", "fontSize": "0.8em", "marginTop": "8px"}
+            telemetry_style = {"color": "#888", "fontSize": "0.8em", "marginTop": "6px"}
+            return (
+                "Select a session and load it to display data.",
+                session_style,
+                "Full event loads all available session overviews for this Grand Prix.",
+                small_style,
+                "",
+                telemetry_style,
+            )
+
+        @app.callback(
+            Output("full-event-load-status", "children"),
+            Output("full-event-load-status", "style"),
+            Input("load-full-event-button", "n_clicks"),
+            State("year-input", "value"),
+            State("event-input", "value"),
+            prevent_initial_call=True,
+            running=[
+                (
+                    Output("full-event-load-status", "children", allow_duplicate=True),
+                    "Loading full event. This can take a moment...",
+                    "Full event load finished.",
+                ),
+                (
+                    Output("full-event-load-status", "style", allow_duplicate=True),
+                    {"color": "#fbbf24", "fontSize": "0.8em", "marginTop": "8px"},
+                    {"color": "#888", "fontSize": "0.8em", "marginTop": "8px"},
+                ),
+            ],
+        )
+        def load_full_event(n_clicks, year, event):
+            status_style = {"color": "#888", "fontSize": "0.8em", "marginTop": "8px"}
+            if not n_clicks:
+                return (
+                    "Full event loads all available session overviews for this Grand Prix.",
+                    status_style,
+                )
+            if not year or not event:
+                return (
+                    "Select a year and event before loading the full event.",
+                    {**status_style, "color": "#fbbf24"},
+                )
+
+            try:
+                result = session_service.cache_full_event(int(year), str(event))
+            except Exception as e:
+                return (
+                    f"Could not load full event: {e}",
+                    {**status_style, "color": "#ef4444"},
+                )
+
+            parts = []
+            if result.loaded:
+                parts.append(f"Loaded: {', '.join(result.loaded)}")
+            if result.already_local:
+                parts.append(f"Already local: {', '.join(result.already_local)}")
+            if result.unavailable:
+                parts.append(f"Unavailable: {', '.join(result.unavailable)}")
+
+            if result.stopped_by_rate_limit:
+                parts.append("Stopped because FastF1 rate limit was reached.")
+                return " | ".join(parts), {**status_style, "color": "#ef4444"}
+
+            if result.total_available:
+                parts.append("Telemetry still loads per selected driver.")
+                return " | ".join(parts), {**status_style, "color": "#4ade80"}
+
+            return (
+                "No sessions could be cached for this event.",
+                {**status_style, "color": "#fbbf24"},
+            )
+
+        @app.callback(
             Output("bundle-store", "data"),
             Output("results-table", "columns"),
             Output("results-table", "data"),
             Output("driver-dropdown", "options"),
             Output("driver-dropdown", "value"),
             Output("session-header", "children"),
+            Output("session-load-status", "children"),
+            Output("session-load-status", "style"),
             Output("position-chart-graph", "figure"),
             Output("podium-p1-name", "children"),
             Output("podium-p1-team", "children"),
@@ -367,16 +493,35 @@ class DashboardCallbackRegistry:
             State("session-input", "value"),
             State("user-store", "data"),
             prevent_initial_call=True,
+            running=[
+                (
+                    Output("session-load-status", "children", allow_duplicate=True),
+                    "Loading selected session...",
+                    "Session load finished.",
+                ),
+                (
+                    Output("session-load-status", "style", allow_duplicate=True),
+                    {
+                        "padding": "8px 12px", "marginBottom": "16px", "borderRadius": "6px",
+                        "background": "#1a1a2e", "color": "#fbbf24", "border": "1px solid #333",
+                    },
+                    {
+                        "padding": "8px 12px", "marginBottom": "16px", "borderRadius": "6px",
+                        "background": "#1a1a2e", "color": "#888", "border": "1px solid #333",
+                    },
+                ),
+            ],
         )
         def load_session(n_clicks, year, event, session_code, user_data):
             empty_pos = cls._empty_fig("Race Timeline – Position Chart")
             dash_empty = "—"
+            base_status_style = {
+                "padding": "8px 12px", "marginBottom": "16px", "borderRadius": "6px",
+                "background": "#1a1a2e", "border": "1px solid #333",
+            }
             try:
-                bundle = load_session_quick(
-                    year=year, event=event,
-                    session_code=session_code,
-                    cache_dir="cache",
-                )
+                result = session_service.load_session_overview(year, event, session_code)
+                bundle = result.bundle
                 cache_key = instance._store_session_bundle(year, event, session_code, bundle)
                 results_table = get_results_table(bundle.results)
 
@@ -386,6 +531,7 @@ class DashboardCallbackRegistry:
                     drivers = sorted(bundle.results["Driver"].dropna().astype(str).unique().tolist())
                 elif not bundle.laps.empty and "Driver" in bundle.laps.columns:
                     drivers = sorted(bundle.laps["Driver"].dropna().astype(str).unique().tolist())
+                driver_repo.save_driver_codes(drivers)
 
                 empty_tyre = cls._empty_fig("Tyre Strategy")
                 empty_pace = cls._empty_fig("Team Pace Comparison")
@@ -393,6 +539,8 @@ class DashboardCallbackRegistry:
 
                 if not drivers:
                     return ({}, [], [], [], None, "No driver data available.",
+                            "Session loaded, but no drivers were found.",
+                            {**base_status_style, "color": "#fbbf24"},
                             empty_pos, dash_empty, "", dash_empty, "", dash_empty, "", dash_empty, "", [], [],
                             empty_tyre, empty_pace, empty_dist)
 
@@ -461,6 +609,11 @@ class DashboardCallbackRegistry:
                     cls._to_driver_dropdown_options(drivers),
                     default_driver,
                     f"{year} {event} – {session_code}",
+                    result.message,
+                    {
+                        **base_status_style,
+                        "color": "#4ade80" if result.source == "local" else "#fbbf24",
+                    },
                     pos_fig,
                     p1_name, p1_team,
                     p2_name, p2_team,
@@ -474,6 +627,8 @@ class DashboardCallbackRegistry:
                 )
             except Exception as e:
                 return ({}, [], [], [], None, f"Error loading session: {e}",
+                        f"Could not load session: {e}",
+                        {**base_status_style, "color": "#ef4444"},
                         empty_pos, dash_empty, "", dash_empty, "", dash_empty, "", dash_empty, "", [], [],
                         cls._empty_fig("Tyre Strategy"), cls._empty_fig("Team Pace"), cls._empty_fig("Lap Distribution"))
 
@@ -491,15 +646,18 @@ class DashboardCallbackRegistry:
         @app.callback(
             Output("lap-dropdown", "options"),
             Output("lap-dropdown", "value"),
+            Output("telemetry-load-status", "children"),
+            Output("telemetry-load-status", "style"),
             Input("driver-dropdown", "value"),
             Input("bundle-store", "data"),
         )
         def update_lap_dropdown(driver, bundle_data):
+            status_style = {"color": "#888", "fontSize": "0.8em", "marginTop": "6px"}
             if not driver:
-                return [], []
+                return [], [], "", status_style
             bundle, telemetry_df = instance._retrieve_cached_bundle(bundle_data)
             if bundle is None:
-                return [], []
+                return [], [], "Load a session before selecting laps.", {**status_style, "color": "#fbbf24"}
 
             driver = str(driver)
 
@@ -509,26 +667,29 @@ class DashboardCallbackRegistry:
                 year, event, sc = bd.get("year"), bd.get("event"), bd.get("session")
                 if year and event and sc:
                     try:
-                        driver_tel = load_driver_telemetry(
-                            year, event, sc, driver, cache_dir="cache"
-                        )
-                        if not driver_tel.empty:
-                            if bundle.telemetry.empty:
-                                bundle.telemetry = driver_tel
-                            else:
-                                bundle.telemetry = pd.concat(
-                                    [bundle.telemetry, driver_tel], ignore_index=True
-                                )
-                            telemetry_df = cls._clean_telemetry_dataframe(bundle.telemetry)
-                    except Exception:
-                        return [], []
+                        result = session_service.load_driver_telemetry(year, event, sc, driver)
+                        bundle = result.bundle
+                        instance._session_cache[bd.get("cache_key")] = bundle
+                        telemetry_df = cls._clean_telemetry_dataframe(bundle.telemetry)
+                        message = result.message
+                        message_color = "#4ade80" if result.source == "local" else "#fbbf24"
+                    except Exception as e:
+                        return [], [], f"Could not load telemetry: {e}", {**status_style, "color": "#ef4444"}
+                else:
+                    return [], [], "Session metadata is missing; reload the session.", {**status_style, "color": "#ef4444"}
+            else:
+                message = f"Loaded {driver} telemetry from memory."
+                message_color = "#4ade80"
 
             if telemetry_df.empty:
-                return [], []
+                return [], [], (
+                    f"No usable telemetry/lap data available for {driver}. "
+                    "The session may only have results cached, or FastF1 may be rate-limited."
+                ), {**status_style, "color": "#fbbf24"}
 
             laps = get_driver_laps(telemetry_df, driver)
             default_laps = cls._select_default_laps(telemetry_df, driver, laps)
-            return cls._to_lap_dropdown_options(laps), default_laps
+            return cls._to_lap_dropdown_options(laps), default_laps, message, {**status_style, "color": message_color}
 
         @app.callback(
             Output("kpi-laps", "children"),
@@ -603,8 +764,8 @@ class DashboardCallbackRegistry:
                 return cls._empty_fig("Driver Comparison"), hidden
 
             try:
-                tel1 = load_driver_telemetry(year, event, sc, main_driver, cache_dir="cache")
-                tel2 = load_driver_telemetry(year, event, sc, compare_driver, cache_dir="cache")
+                tel1 = session_service.load_driver_telemetry(year, event, sc, main_driver).telemetry
+                tel2 = session_service.load_driver_telemetry(year, event, sc, compare_driver).telemetry
             except Exception:
                 return cls._empty_fig("Driver Comparison"), hidden
 

@@ -1,3 +1,5 @@
+from datetime import date
+from pathlib import Path
 from typing import Optional
 
 from argon2 import PasswordHasher
@@ -82,10 +84,53 @@ class DriverService:
     def __init__(self, db_path: str = DB_PATH) -> None:
         self._repo = DriverRepository(db_path=db_path)
         self._user_repo = UserRepository(db_path=db_path)
+        self._repo.ensure_schema()
 
     def get_all_driver_codes(self) -> list[str]:
         """Returns all known driver codes, sorted alphabetically."""
         return self._repo.get_all_driver_codes()
+
+    def save_driver_codes(self, codes: list[str]) -> None:
+        """Persists driver codes discovered from loaded sessions."""
+        self._repo.upsert_driver_codes(codes)
+
+    def refresh_known_driver_codes(
+        self,
+        *,
+        start_year: int | None = None,
+        cache_dir: str | Path = "cache",
+        min_count: int = 10,
+    ) -> list[str]:
+        """
+        Finds a recent session with driver data, stores those drivers, and returns them.
+
+        This is intentionally called on demand by the UI instead of during import, so
+        login/database startup stays independent from FastF1 and heavy data packages.
+        """
+        existing = self.get_all_driver_codes()
+        if len(existing) >= min_count:
+            return existing
+
+        from src.database import F1DriverQuery, F1TrackQuery
+
+        first_year = start_year if start_year is not None else date.today().year
+        for year in range(first_year, first_year - 3, -1):
+            events = F1TrackQuery.from_schedule(year)
+            for event in reversed(events):
+                for session_code in ("R", "Q"):
+                    try:
+                        drivers = F1DriverQuery.for_session(
+                            year,
+                            event,
+                            session_code,
+                            cache_dir=cache_dir,
+                        )
+                    except Exception:
+                        continue
+                    if drivers:
+                        self.save_driver_codes(drivers)
+                        return self.get_all_driver_codes()
+        return existing
 
     def get_popular_drivers(self, limit: int = 3) -> list[str]:
         """Returns the most frequently chosen driver codes (from user preferences)."""

@@ -3,6 +3,7 @@ from src.dash_layout import create_layout
 from src.dash_callbacks import DashboardCallbackRegistry
 from src.auth_service import AuthService, DriverService
 from src.preload_service import DataLoader
+from src.session_service import SessionService
 
 DB_PATH = "data/f1.sqlite"
 
@@ -12,6 +13,7 @@ DB_PATH = "data/f1.sqlite"
 _auth_service = AuthService(db_path=DB_PATH)
 _driver_service = DriverService(db_path=DB_PATH)
 _data_loader = DataLoader()
+_session_service = SessionService(db_path=DB_PATH, cache_dir="cache")
 
 app = Dash(
     __name__,
@@ -27,8 +29,9 @@ callbacks = DashboardCallbackRegistry(
     auth_service=_auth_service,
     driver_service=_driver_service,
     data_loader=_data_loader,
+    session_service=_session_service,
 )
 callbacks.register(app)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=False)

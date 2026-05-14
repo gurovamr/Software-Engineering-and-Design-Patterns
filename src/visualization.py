@@ -318,14 +318,19 @@ class TyreStrategyChart(BaseChart):
 class TeamPaceChart(BaseChart):
     def _build(self) -> go.Figure:
         fig = go.Figure()
-        if self._df.empty or "LapTime" not in self._df.columns or "Team" not in self._df.columns:
+        if self._df.empty or "Team" not in self._df.columns:
             fig.update_layout(height=400,
                               title=dict(text="Team Pace Comparison",
                                          font=dict(color=self._theme.text, size=14)))
             return fig
 
         df = self._df.copy()
-        df["LapTimeSec"] = df["LapTime"].dt.total_seconds()
+        if "LapTimeSeconds" in df.columns:
+            df["LapTimeSec"] = pd.to_numeric(df["LapTimeSeconds"], errors="coerce")
+        elif "LapTime" in df.columns and pd.api.types.is_timedelta64_dtype(df["LapTime"]):
+            df["LapTimeSec"] = df["LapTime"].dt.total_seconds()
+        else:
+            df["LapTimeSec"] = pd.to_numeric(df.get("LapTime"), errors="coerce")
         df = df[df["LapTimeSec"].notna()]
 
         fastest = df["LapTimeSec"].min()
@@ -360,14 +365,19 @@ class LapTimesDistributionChart(BaseChart):
 
     def _build(self) -> go.Figure:
         fig = go.Figure()
-        if self._df.empty or "LapTime" not in self._df.columns or "Driver" not in self._df.columns:
+        if self._df.empty or "Driver" not in self._df.columns:
             fig.update_layout(height=400,
                               title=dict(text="Lap Times Distribution",
                                          font=dict(color=self._theme.text, size=14)))
             return fig
 
         df = self._df.copy()
-        df["LapTimeSec"] = df["LapTime"].dt.total_seconds()
+        if "LapTimeSeconds" in df.columns:
+            df["LapTimeSec"] = pd.to_numeric(df["LapTimeSeconds"], errors="coerce")
+        elif "LapTime" in df.columns and pd.api.types.is_timedelta64_dtype(df["LapTime"]):
+            df["LapTimeSec"] = df["LapTime"].dt.total_seconds()
+        else:
+            df["LapTimeSec"] = pd.to_numeric(df.get("LapTime"), errors="coerce")
         df = df[df["LapTimeSec"].notna()]
 
         fastest = df["LapTimeSec"].min()

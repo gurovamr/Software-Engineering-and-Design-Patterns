@@ -41,8 +41,23 @@ def _login_page():
             dcc.Input(id="login-password", type="password", placeholder="Enter password",
                       style={"width": "100%", "marginBottom": "12px", "background": _BG, "color": _TEXT, "border": f"1px solid {_BORDER}"}),
             html.Label("Favorite Driver (optional)", style={"color": _TEXT}),
-            dcc.Dropdown(id="login-fav-driver", options=[], value=None, placeholder="Select driver…",
-                         style={"marginBottom": "16px"}),
+            dcc.Interval(id="driver-options-loader", interval=500, max_intervals=1),
+            dcc.Loading(
+                type="circle",
+                children=dcc.Dropdown(
+                    id="login-fav-driver",
+                    options=[],
+                    value=None,
+                    disabled=True,
+                    placeholder="Loading drivers...",
+                    style={"marginBottom": "6px"},
+                ),
+            ),
+            html.Div(
+                id="driver-options-status",
+                children="Loading driver list...",
+                style={"color": _MUTED, "fontSize": "0.8em", "marginBottom": "16px"},
+            ),
             html.Div(style={"display": "flex", "gap": "10px"}, children=[
                 html.Button("Login", id="btn-login", n_clicks=0,
                             style={"background": _ACCENT, "color": "white", "border": "none", "padding": "8px 20px", "borderRadius": "4px", "cursor": "pointer"}),
@@ -118,9 +133,13 @@ def _dashboard_page():
                     "borderRight": f"1px solid {_BORDER}", "flexShrink": "0",
                 }, children=[
                     html.Label("Year", style=_LABEL_STYLE),
-                    dcc.Input(id="year-input", type="number", value=_current_year, min=2018, max=_current_year,
-                              style={"width": "100%", "marginBottom": "12px", "background": _BG, "color": _TEXT,
-                                     "border": f"1px solid {_BORDER}", "borderRadius": "4px", "padding": "6px"}),
+                    dcc.Dropdown(
+                        id="year-input",
+                        options=[{"label": str(y), "value": y} for y in range(_current_year, 2017, -1)],
+                        value=_current_year,
+                        clearable=False,
+                        style={"marginBottom": "12px"},
+                    ),
 
                     html.Label("Race / Event", style=_LABEL_STYLE),
                     dcc.Dropdown(id="event-input", options=[], value=None, placeholder="Select event…",
@@ -140,6 +159,18 @@ def _dashboard_page():
                             "padding": "10px", "borderRadius": "6px", "cursor": "pointer", "fontWeight": "bold",
                         }),
                     ),
+                    dcc.Loading(id="loading-full-event", type="circle", children=
+                        html.Button("Load Full Event", id="load-full-event-button", n_clicks=0, style={
+                            "width": "100%", "background": _BORDER, "color": _TEXT, "border": "none",
+                            "padding": "9px", "borderRadius": "6px", "cursor": "pointer",
+                            "fontWeight": "bold", "marginTop": "8px",
+                        }),
+                    ),
+                    html.Div(
+                        id="full-event-load-status",
+                        children="Full event loads all available session overviews for this Grand Prix.",
+                        style={"color": _MUTED, "fontSize": "0.8em", "marginTop": "8px"},
+                    ),
 
                     html.Hr(style={"borderColor": _BORDER, "margin": "20px 0"}),
 
@@ -149,6 +180,10 @@ def _dashboard_page():
 
                     html.Label("Laps to compare", style=_LABEL_STYLE),
                     dcc.Dropdown(id="lap-dropdown", options=[], value=[], multi=True),
+                    html.Div(
+                        id="telemetry-load-status",
+                        style={"color": _MUTED, "fontSize": "0.8em", "marginTop": "6px"},
+                    ),
 
                     html.Hr(style={"borderColor": _BORDER, "margin": "20px 0"}),
 
@@ -167,6 +202,10 @@ def _dashboard_page():
                     # Session header
                     html.Div(id="session-header", style={
                         "fontSize": "1.4em", "fontWeight": "bold", "color": _TEXT, "marginBottom": "16px",
+                    }),
+                    html.Div(id="session-load-status", style={
+                        "padding": "8px 12px", "marginBottom": "16px", "borderRadius": "6px",
+                        "background": "#1a1a2e", "color": _MUTED, "border": f"1px solid {_BORDER}",
                     }),
 
                     # ── Podium cards ────────────────────────────
