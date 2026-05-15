@@ -135,8 +135,9 @@ class BaseChart(ABC):
 
 class SpeedChart(BaseChart):
     def _build(self) -> go.Figure:
+        color_col = "TraceLabel" if "TraceLabel" in self._df.columns else "LapNumber"
         fig = px.line(
-            self._df, x="Distance", y="Speed", color="LapNumber",
+            self._df, x="Distance", y="Speed", color=color_col,
             title="Speed over Distance",
             labels={"Distance": "Distance (m)", "Speed": "Speed (km/h)"},
         )
@@ -147,8 +148,10 @@ class SpeedChart(BaseChart):
 
 class LapSummaryChart(BaseChart):
     def _build(self) -> go.Figure:
+        color_col = "Driver" if "Driver" in self._df.columns and self._df["Driver"].nunique() > 1 else None
         fig = px.line(
             self._df, x="LapNumber", y="LapTimeSeconds", markers=True,
+            color=color_col,
             title="Lap Time Comparison",
             labels={"LapNumber": "Lap", "LapTimeSeconds": "Lap Time (s)"},
         )
@@ -160,15 +163,19 @@ class LapSummaryChart(BaseChart):
 class ThrottleBrakeChart(BaseChart):
     def _build(self) -> go.Figure:
         fig = go.Figure()
-        for lap in sorted(self._df["LapNumber"].dropna().unique()):
-            lap_df = self._df[self._df["LapNumber"] == lap]
+        if "TraceLabel" in self._df.columns:
+            groups = [(label, df) for label, df in self._df.groupby("TraceLabel", sort=False)]
+        else:
+            groups = [(f"Lap {int(lap)}", self._df[self._df["LapNumber"] == lap])
+                      for lap in sorted(self._df["LapNumber"].dropna().unique())]
+        for label, lap_df in groups:
             fig.add_trace(go.Scatter(
                 x=lap_df["Distance"], y=lap_df["Throttle"],
-                mode="lines", name=f"Throttle - Lap {int(lap)}",
+                mode="lines", name=f"Throttle - {label}",
             ))
             fig.add_trace(go.Scatter(
                 x=lap_df["Distance"], y=lap_df["Brake"],
-                mode="lines", name=f"Brake - Lap {int(lap)}",
+                mode="lines", name=f"Brake - {label}",
                 line=dict(dash="dot"),
             ))
         fig.update_layout(
@@ -182,13 +189,23 @@ class ThrottleBrakeChart(BaseChart):
 
 class GearChart(BaseChart):
     def _build(self) -> go.Figure:
+        df = self._df.copy()
+        if "nGear" not in df.columns:
+            return self.empty_figure("Gear")
+        df["nGear"] = pd.to_numeric(df["nGear"], errors="coerce")
+        df = df[df["nGear"] >= 1]
+        if df.empty:
+            return self.empty_figure("Gear")
+
+        color_col = "TraceLabel" if "TraceLabel" in df.columns else "LapNumber"
         fig = px.line(
-            self._df, x="Distance", y="nGear", color="LapNumber",
+            df, x="Distance", y="nGear", color=color_col,
             title="Gear over Distance",
             labels={"Distance": "Distance (m)", "nGear": "Gear"},
         )
         fig.update_layout(height=350,
                           title=dict(font=dict(color=self._theme.text, size=14)))
+        fig.update_yaxes(range=[1, 8], dtick=1)
         return fig
 
 
@@ -403,16 +420,18 @@ class LapTimesDistributionChart(BaseChart):
             fill = F1ColorPalette.hex_to_rgba(color, 0.2)
 
             fig.add_trace(go.Violin(
-                y=d["LapTimeSec"], name=driver,
-                box_visible=True, meanline_visible=True,
+                x=[driver] * len(d), y=d["LapTimeSec"], name=driver,
+                box_visible=False, meanline_visible=True,
                 line_color=color, fillcolor=fill,
-                points="all", pointpos=0, jitter=0.3,
+                points="all", pointpos=0, jitter=0.18,
+                side="both", width=0.75,
                 marker=dict(size=3, color=color),
             ))
 
         fig.update_layout(
             showlegend=False, yaxis_title="Lap Time (s)",
-            violinmode="group", height=450,
+            violinmode="overlay", height=450,
+            xaxis=dict(categoryorder="array", categoryarray=driver_order),
             title=dict(text="Lap Times Distribution",
                        font=dict(color=self._theme.text, size=14)),
         )
@@ -437,7 +456,7 @@ class GearMapChart(BaseChart):
 
         df = self._df.copy()
         df["nGear"] = pd.to_numeric(df["nGear"], errors="coerce")
-        df = df[df["nGear"].notna()]
+        df = df[df["nGear"] >= 1]
         if df.empty:
             fig.update_layout(height=450,
                               title=dict(text="Gear Shifts on Track",
@@ -549,8 +568,15 @@ class DriverComparisonChart(TwoDriverChart):
         def _add(df, y_col, row, name, color, showlegend=False):
             if y_col not in df.columns or "Distance" not in df.columns:
                 return
+            plot_df = df[["Distance", y_col]].copy()
+            plot_df[y_col] = pd.to_numeric(plot_df[y_col], errors="coerce")
+            plot_df = plot_df[plot_df[y_col].notna()]
+            if y_col == "nGear":
+                plot_df = plot_df[plot_df[y_col] >= 1]
+            if plot_df.empty:
+                return
             fig.add_trace(go.Scatter(
-                x=df["Distance"], y=df[y_col],
+                x=plot_df["Distance"], y=plot_df[y_col],
                 mode="lines", name=name,
                 line=dict(color=color, width=1.5),
                 showlegend=showlegend,
@@ -592,6 +618,7 @@ class DriverComparisonChart(TwoDriverChart):
         )
 
         fig.update_xaxes(title_text="Distance (m)", row=5, col=1)
+        fig.update_yaxes(range=[1, 8], dtick=1, row=4, col=1)
         return fig
 
     @staticmethod

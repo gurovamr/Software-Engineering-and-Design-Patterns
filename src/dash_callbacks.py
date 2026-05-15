@@ -1,6 +1,7 @@
 import pandas as pd
 from dash import Input, Output, State, no_update, callback_context, html
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from pathlib import Path
 
 from src.database import F1TrackQuery, TrackRepository
@@ -19,14 +20,12 @@ from src.visualization import (
     SpeedChart,
     ThrottleBrakeChart,
     GearChart,
-    TrackMapChart,
     LapSummaryChart,
     PositionChart,
-    DriverComparisonChart,
     TyreStrategyChart,
     TeamPaceChart,
     LapTimesDistributionChart,
-    GearMapChart,
+    F1ColorPalette,
 )
 from src.auth_service import AuthService, DriverService
 from src.preload_service import DataLoader
@@ -81,8 +80,7 @@ class DashboardCallbackRegistry:
             "Max Speed: n/a",
             "Samples: n/a",
             "Best Lap: n/a",
-            cls._empty_fig("Lap Comparison"),
-            [], [],
+            cls._empty_fig("Lap Times for Selected Drivers"),
             cls._empty_fig("Speed"),
             cls._empty_fig("Gear"),
             cls._empty_fig("Throttle / Brake"),
@@ -134,11 +132,247 @@ class DashboardCallbackRegistry:
 
     @staticmethod
     def _select_default_laps(telemetry_df, driver, all_laps):
-        """Determines default laps (fastest 2 or first 2)."""
-        default = get_fastest_laps_for_driver(telemetry_df, driver, top_n=2)
+        """Determines the default lap (fastest lap, with first lap as fallback)."""
+        default = get_fastest_laps_for_driver(telemetry_df, driver, top_n=1)
         if not default and all_laps:
-            default = all_laps[:2]
+            default = all_laps[:1]
         return [int(x) for x in default]
+
+    @staticmethod
+    def _drivers_from_selected_rows(selected_rows, rows, fallback=None):
+        drivers: list[str] = []
+        if rows and selected_rows:
+            for idx in selected_rows[:3]:
+                if 0 <= int(idx) < len(rows):
+                    driver = rows[int(idx)].get("Driver")
+                    if driver and str(driver) not in drivers:
+                        drivers.append(str(driver))
+        if not drivers and fallback:
+            drivers.append(str(fallback))
+        return drivers
+
+    @staticmethod
+    def _summary_for_drivers(telemetry_df, drivers):
+        frames = []
+        for driver in drivers:
+            laps = get_driver_laps(telemetry_df, driver)
+            summary = get_lap_summary(telemetry_df, driver, laps)
+            if summary.empty:
+                continue
+            summary.insert(0, "Driver", str(driver))
+            frames.append(summary)
+        return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+    @staticmethod
+    def _fastest_telemetry_for_drivers(telemetry_df, drivers):
+        frames = []
+        for driver in drivers:
+            laps = get_fastest_laps_for_driver(telemetry_df, driver, top_n=1)
+            if not laps:
+                available = get_driver_laps(telemetry_df, driver)
+                laps = available[:1]
+            if not laps:
+                continue
+            lap = int(laps[0])
+            df = get_multiple_laps_telemetry(telemetry_df, driver, [lap])
+            if df.empty:
+                continue
+            df = df.copy()
+            df["TraceLabel"] = f"{driver} L{lap}"
+            frames.append(df)
+        return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+    @staticmethod
+    def _summary_from_telemetry(lap_df):
+        if lap_df.empty or not {"Driver", "LapNumber"}.issubset(lap_df.columns):
+            return pd.DataFrame()
+        aggregations = {"LapTimeSeconds": ("LapTimeSeconds", "first")}
+        if "Speed" in lap_df.columns:
+            aggregations.update(MaxSpeed=("Speed", "max"), MeanSpeed=("Speed", "mean"))
+        if "Throttle" in lap_df.columns:
+            aggregations.update(MeanThrottle=("Throttle", "mean"))
+        if "Brake" in lap_df.columns:
+            aggregations.update(BrakeEvents=("Brake", lambda s: int((s > 0).sum()) if s.notna().any() else 0))
+        return (
+            lap_df.groupby(["Driver", "LapNumber"], as_index=False)
+            .agg(**aggregations)
+            .sort_values(["Driver", "LapNumber"])
+        )
+
+    @staticmethod
+    def _format_lap_selection_table(summary_df):
+        if summary_df.empty:
+            return pd.DataFrame()
+        out = summary_df.copy()
+        cols = [c for c in ["Driver", "LapNumber", "LapTimeSeconds", "MaxSpeed", "MeanSpeed"] if c in out.columns]
+        out = out[cols].copy()
+        for col in ["LapTimeSeconds", "MaxSpeed", "MeanSpeed"]:
+            if col in out.columns:
+                out[col] = pd.to_numeric(out[col], errors="coerce").round(3)
+        if "LapTimeSeconds" in out.columns:
+            out = out.sort_values(["Driver", "LapTimeSeconds", "LapNumber"])
+        else:
+            out = out.sort_values(["Driver", "LapNumber"])
+        return out.reset_index(drop=True)
+
+    @classmethod
+    def _top_lap_table_for_driver(cls, summary_df, driver, limit=10):
+        if summary_df.empty or "Driver" not in summary_df.columns:
+            return pd.DataFrame()
+        table = cls._format_lap_selection_table(summary_df)
+        table = table[table["Driver"].astype(str) == str(driver)].copy()
+        return table.head(limit).reset_index(drop=True)
+
+    @staticmethod
+    def _lap_table_columns(table):
+        hidden = {"Driver"}
+        return [{"name": c, "id": c} for c in table.columns if c not in hidden]
+
+    @staticmethod
+    def _default_lap_table_rows(lap_table, per_driver=5):
+        if lap_table.empty or not {"Driver", "LapNumber"}.issubset(lap_table.columns):
+            return []
+        selected = []
+        sort_cols = ["Driver"]
+        if "LapTimeSeconds" in lap_table.columns:
+            sort_cols.append("LapTimeSeconds")
+        sort_cols.append("LapNumber")
+        ordered = lap_table.sort_values(sort_cols)
+        for driver, group in ordered.groupby("Driver", sort=False):
+            selected.extend(group.head(per_driver).index.astype(int).tolist())
+        return sorted(selected)
+
+    @staticmethod
+    def _selected_lap_rows_to_df(rows, selected_rows):
+        if not rows:
+            return pd.DataFrame()
+        if selected_rows:
+            selected = [rows[int(idx)] for idx in selected_rows if 0 <= int(idx) < len(rows)]
+        else:
+            selected = rows
+        df = pd.DataFrame(selected)
+        if not df.empty and "LapNumber" in df.columns:
+            df["LapNumber"] = pd.to_numeric(df["LapNumber"], errors="coerce").astype("Int64")
+        return df
+
+    @staticmethod
+    def _telemetry_from_lap_rows(telemetry_df, lap_rows_df):
+        frames = []
+        if lap_rows_df.empty:
+            return pd.DataFrame()
+        for _, row in lap_rows_df.dropna(subset=["Driver", "LapNumber"]).iterrows():
+            driver = str(row["Driver"])
+            lap = int(row["LapNumber"])
+            df = get_multiple_laps_telemetry(telemetry_df, driver, [lap])
+            if df.empty:
+                continue
+            df = df.copy()
+            df["TraceLabel"] = f"{driver} L{lap}"
+            frames.append(df)
+        return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+    @staticmethod
+    def _track_telemetry_for_drivers(telemetry_df, drivers, lap_values):
+        frames = []
+        for idx, driver in enumerate(drivers[:3]):
+            lap = lap_values[idx] if idx < len(lap_values) else None
+            if lap is None:
+                default = get_fastest_laps_for_driver(telemetry_df, driver, top_n=1)
+                lap = default[0] if default else None
+            if lap is None:
+                continue
+            df = get_multiple_laps_telemetry(telemetry_df, driver, [int(lap)])
+            if df.empty:
+                continue
+            df = df.copy()
+            df["TraceLabel"] = f"{driver} L{int(lap)}"
+            frames.append(df)
+        return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+    @staticmethod
+    def _empty_track_grid(title):
+        return BaseChart.empty_figure(title, height=420)
+
+    @classmethod
+    def _build_speed_track_grid(cls, track_df):
+        if track_df.empty or not {"X", "Y", "Speed", "TraceLabel"}.issubset(track_df.columns):
+            return cls._empty_track_grid("Track Map colored by Speed")
+        labels = list(track_df["TraceLabel"].dropna().astype(str).unique())[:3]
+        if not labels:
+            return cls._empty_track_grid("Track Map colored by Speed")
+        fig = make_subplots(rows=1, cols=len(labels), subplot_titles=labels)
+        for col, label in enumerate(labels, start=1):
+            df = track_df[track_df["TraceLabel"].astype(str) == label]
+            fig.add_trace(
+                go.Scatter(
+                    x=df["X"],
+                    y=df["Y"],
+                    mode="markers",
+                    marker=dict(size=5, color=df["Speed"], coloraxis="coloraxis"),
+                    text=df.get("Distance"),
+                    hovertemplate=f"{label}<br>Speed %{{marker.color:.1f}} km/h<extra></extra>",
+                    name=label,
+                    showlegend=False,
+                ),
+                row=1,
+                col=col,
+            )
+            fig.update_xaxes(showticklabels=False, showgrid=False, zeroline=False, row=1, col=col)
+            fig.update_yaxes(showticklabels=False, showgrid=False, zeroline=False, scaleanchor=f"x{col if col > 1 else ''}", row=1, col=col)
+        fig.update_layout(
+            title=dict(text="Track Map colored by Speed", font=dict(color="#e0e0e0", size=14)),
+            height=420,
+            paper_bgcolor="#1a1a2e",
+            plot_bgcolor="#1a1a2e",
+            font=dict(color="#e0e0e0"),
+            coloraxis=dict(colorscale="Turbo", colorbar=dict(title="km/h")),
+            margin=dict(l=30, r=30, t=70, b=30),
+        )
+        return fig
+
+    @classmethod
+    def _build_gear_track_grid(cls, track_df):
+        if track_df.empty or not {"X", "Y", "nGear", "TraceLabel"}.issubset(track_df.columns):
+            return cls._empty_track_grid("Gear Shifts on Track")
+        df = track_df.copy()
+        df["nGear"] = pd.to_numeric(df["nGear"], errors="coerce")
+        df = df[df["nGear"] >= 1]
+        if df.empty:
+            return cls._empty_track_grid("Gear Shifts on Track")
+        labels = list(df["TraceLabel"].dropna().astype(str).unique())[:3]
+        if not labels:
+            return cls._empty_track_grid("Gear Shifts on Track")
+        fig = make_subplots(rows=1, cols=len(labels), subplot_titles=labels)
+        for col, label in enumerate(labels, start=1):
+            label_df = df[df["TraceLabel"].astype(str) == label]
+            for gear in sorted(label_df["nGear"].dropna().unique()):
+                gear_int = int(gear)
+                gd = label_df[label_df["nGear"] == gear]
+                fig.add_trace(
+                    go.Scatter(
+                        x=gd["X"],
+                        y=gd["Y"],
+                        mode="markers",
+                        marker=dict(color=F1ColorPalette.get_gear_color(gear_int), size=4),
+                        name=f"Gear {gear_int}",
+                        showlegend=(col == 1),
+                        hovertemplate=f"{label}<br>Gear {gear_int}<extra></extra>",
+                    ),
+                    row=1,
+                    col=col,
+                )
+            fig.update_xaxes(showticklabels=False, showgrid=False, zeroline=False, row=1, col=col)
+            fig.update_yaxes(showticklabels=False, showgrid=False, zeroline=False, scaleanchor=f"x{col if col > 1 else ''}", row=1, col=col)
+        fig.update_layout(
+            title=dict(text="Gear Shifts on Track", font=dict(color="#e0e0e0", size=14)),
+            height=420,
+            paper_bgcolor="#1a1a2e",
+            plot_bgcolor="#1a1a2e",
+            font=dict(color="#e0e0e0"),
+            legend=dict(orientation="h", y=-0.08, x=0.5, xanchor="center"),
+            margin=dict(l=30, r=30, t=70, b=60),
+        )
+        return fig
 
     @staticmethod
     def _compute_kpi_strings(lap_df, summary_df, num_laps):
@@ -159,26 +393,36 @@ class DashboardCallbackRegistry:
     @classmethod
     def _build_lap_summary_chart(cls, summary_df, num_laps):
         """Builds the lap comparison chart."""
-        if num_laps >= 2 and not summary_df.empty:
+        if num_laps >= 1 and not summary_df.empty:
             return LapSummaryChart(summary_df).render()
-        return cls._empty_fig("Lap Comparison")
+        return cls._empty_fig("Lap Times for Selected Drivers")
 
     @classmethod
-    def _build_all_charts(cls, lap_df, summary_df, num_laps):
+    def _build_all_charts(cls, lap_df, summary_df, num_laps, track_df=None):
         """Builds all dashboard charts."""
-        chart_specs = [
-            ({"Distance", "Speed", "LapNumber"}, SpeedChart, "Speed"),
-            ({"Distance", "nGear", "LapNumber"}, GearChart, "Gear"),
-            ({"Distance", "Throttle", "Brake", "LapNumber"}, ThrottleBrakeChart, "Throttle / Brake"),
-            ({"X", "Y", "Speed", "LapNumber"}, TrackMapChart, "Track Map"),
-            ({"X", "Y", "nGear"}, GearMapChart, "Gear Shifts on Track"),
-        ]
-        results = [cls._build_lap_summary_chart(summary_df, num_laps)]
-        for cols_needed, chart_cls, fallback in chart_specs:
-            if cols_needed.issubset(lap_df.columns):
-                results.append(chart_cls(lap_df).render())
-            else:
-                results.append(cls._empty_fig(fallback))
+        results = [cls._build_lap_summary_chart(summary_df, len(summary_df))]
+
+        if {"Distance", "Speed", "LapNumber"}.issubset(lap_df.columns):
+            results.append(SpeedChart(lap_df).render())
+        else:
+            results.append(cls._empty_fig("Speed"))
+
+        if {"Distance", "nGear", "LapNumber"}.issubset(lap_df.columns):
+            results.append(GearChart(lap_df).render())
+        else:
+            results.append(cls._empty_fig("Gear"))
+
+        if {"Distance", "Throttle", "Brake", "LapNumber"}.issubset(lap_df.columns):
+            results.append(ThrottleBrakeChart(lap_df).render())
+        else:
+            results.append(cls._empty_fig("Throttle / Brake"))
+
+        if track_df is None:
+            track_df = lap_df
+
+        results.append(cls._build_speed_track_grid(track_df))
+        results.append(cls._build_gear_track_grid(track_df))
+
         return tuple(results)
 
     def register(self, app):
@@ -387,14 +631,11 @@ class DashboardCallbackRegistry:
             prevent_initial_call=True,
         )
         def reset_load_messages(_, __, ___):
-            session_style = {
-                "padding": "8px 12px", "marginBottom": "16px", "borderRadius": "6px",
-                "background": "#1a1a2e", "color": "#888", "border": "1px solid #333",
-            }
+            session_style = {"display": "none"}
             small_style = {"color": "#888", "fontSize": "0.8em", "marginTop": "8px"}
             telemetry_style = {"color": "#888", "fontSize": "0.8em", "marginTop": "6px"}
             return (
-                "Select a session and load it to display data.",
+                "",
                 session_style,
                 "Full event loads all available session overviews for this Grand Prix.",
                 small_style,
@@ -468,6 +709,7 @@ class DashboardCallbackRegistry:
             Output("bundle-store", "data"),
             Output("results-table", "columns"),
             Output("results-table", "data"),
+            Output("results-table", "selected_rows"),
             Output("driver-dropdown", "options"),
             Output("driver-dropdown", "value"),
             Output("session-header", "children"),
@@ -483,7 +725,6 @@ class DashboardCallbackRegistry:
             Output("podium-fastest-name", "children"),
             Output("podium-fastest-team", "children"),
             Output("key-events-container", "children"),
-            Output("compare-driver-dropdown", "options"),
             Output("tyre-strategy-graph", "figure"),
             Output("team-pace-graph", "figure"),
             Output("laptimes-dist-graph", "figure"),
@@ -504,10 +745,12 @@ class DashboardCallbackRegistry:
                     {
                         "padding": "8px 12px", "marginBottom": "16px", "borderRadius": "6px",
                         "background": "#1a1a2e", "color": "#fbbf24", "border": "1px solid #333",
+                        "display": "block",
                     },
                     {
                         "padding": "8px 12px", "marginBottom": "16px", "borderRadius": "6px",
                         "background": "#1a1a2e", "color": "#888", "border": "1px solid #333",
+                        "display": "block",
                     },
                 ),
             ],
@@ -517,13 +760,13 @@ class DashboardCallbackRegistry:
             dash_empty = "—"
             base_status_style = {
                 "padding": "8px 12px", "marginBottom": "16px", "borderRadius": "6px",
-                "background": "#1a1a2e", "border": "1px solid #333",
+                "background": "#1a1a2e", "border": "1px solid #333", "display": "block",
             }
             try:
                 result = session_service.load_session_overview(year, event, session_code)
                 bundle = result.bundle
                 cache_key = instance._store_session_bundle(year, event, session_code, bundle)
-                results_table = get_results_table(bundle.results)
+                results_table = get_results_table(bundle.results).reset_index(drop=True)
 
                 # Get drivers from results/laps (no telemetry needed)
                 drivers = []
@@ -538,10 +781,10 @@ class DashboardCallbackRegistry:
                 empty_dist = cls._empty_fig("Lap Times Distribution")
 
                 if not drivers:
-                    return ({}, [], [], [], None, "No driver data available.",
+                    return ({}, [], [], [], [], None, "No driver data available.",
                             "Session loaded, but no drivers were found.",
                             {**base_status_style, "color": "#fbbf24"},
-                            empty_pos, dash_empty, "", dash_empty, "", dash_empty, "", dash_empty, "", [], [],
+                            empty_pos, dash_empty, "", dash_empty, "", dash_empty, "", dash_empty, "", [],
                             empty_tyre, empty_pace, empty_dist)
 
                 # Use favorite driver as default if available
@@ -550,6 +793,11 @@ class DashboardCallbackRegistry:
                     default_driver = fav
                 else:
                     default_driver = cls._determine_default_driver(results_table, drivers)
+                default_selected_rows = []
+                if default_driver and not results_table.empty and "Driver" in results_table.columns:
+                    matches = results_table.index[results_table["Driver"].astype(str) == str(default_driver)].tolist()
+                    if matches:
+                        default_selected_rows = [int(matches[0])]
 
                 # Position chart
                 pos_fig = PositionChart(bundle.laps).render() if not bundle.laps.empty else empty_pos
@@ -588,9 +836,28 @@ class DashboardCallbackRegistry:
 
                 # Key events
                 events_data = PitStopExtractor.extract(bundle.laps)
+                driver_team = {}
+                if not res.empty and "Driver" in res.columns:
+                    team_col = "Team" if "Team" in res.columns else "TeamName" if "TeamName" in res.columns else None
+                    if team_col:
+                        driver_team.update(
+                            {
+                                str(row["Driver"]): str(row[team_col])
+                                for _, row in res[["Driver", team_col]].dropna(subset=["Driver"]).iterrows()
+                            }
+                        )
+                if not bundle.laps.empty and "Driver" in bundle.laps.columns and "Team" in bundle.laps.columns:
+                    lap_teams = bundle.laps[["Driver", "Team"]].dropna(subset=["Driver"]).drop_duplicates("Driver")
+                    driver_team.update(
+                        {
+                            str(row["Driver"]): str(row["Team"])
+                            for _, row in lap_teams.iterrows()
+                            if str(row["Driver"]) not in driver_team
+                        }
+                    )
                 event_badges = []
                 for ev in events_data:
-                    badge_color = "#e10600" if ev["type"] == "PIT" else "#555"
+                    badge_color = F1ColorPalette.get_team_color(driver_team.get(str(ev["driver"]), ""))
                     event_badges.append(html.Span(
                         f"{ev['driver']} {ev['type']} Lap {ev['lap']}",
                         style={
@@ -606,6 +873,7 @@ class DashboardCallbackRegistry:
                     {"cache_key": cache_key, "year": year, "event": event, "session": session_code},
                     cls._to_datatable_columns(results_table),
                     results_table.to_dict("records"),
+                    default_selected_rows,
                     cls._to_driver_dropdown_options(drivers),
                     default_driver,
                     f"{year} {event} – {session_code}",
@@ -620,76 +888,157 @@ class DashboardCallbackRegistry:
                     p3_name, p3_team,
                     fl_name, fl_team,
                     event_badges,
-                    cls._to_driver_dropdown_options(drivers),
                     TyreStrategyChart(bundle.laps).render() if not bundle.laps.empty else empty_tyre,
                     TeamPaceChart(bundle.laps).render() if not bundle.laps.empty else empty_pace,
                     LapTimesDistributionChart(bundle.laps).render() if not bundle.laps.empty else empty_dist,
                 )
             except Exception as e:
-                return ({}, [], [], [], None, f"Error loading session: {e}",
+                return ({}, [], [], [], [], None, f"Error loading session: {e}",
                         f"Could not load session: {e}",
                         {**base_status_style, "color": "#ef4444"},
-                        empty_pos, dash_empty, "", dash_empty, "", dash_empty, "", dash_empty, "", [], [],
+                        empty_pos, dash_empty, "", dash_empty, "", dash_empty, "", dash_empty, "", [],
                         cls._empty_fig("Tyre Strategy"), cls._empty_fig("Team Pace"), cls._empty_fig("Lap Distribution"))
 
         @app.callback(
             Output("driver-dropdown", "value", allow_duplicate=True),
+            Output("results-table", "selected_rows", allow_duplicate=True),
+            Output("selected-drivers-status", "children"),
             Input("results-table", "selected_rows"),
             State("results-table", "data"),
             prevent_initial_call=True,
         )
         def select_driver_from_table(selected_rows, rows):
             if not selected_rows or not rows:
-                return no_update
-            return rows[selected_rows[0]].get("Driver", no_update)
+                return None, no_update, "Select up to 3 drivers in the finishing order table."
+            limited_rows = [int(x) for x in selected_rows[:3]]
+            drivers = cls._drivers_from_selected_rows(limited_rows, rows)
+            if not drivers:
+                return no_update, no_update, "Select up to 3 drivers in the finishing order table."
+            limited_update = limited_rows if len(limited_rows) != len(selected_rows) else no_update
+            suffix = " Only the first 3 selections are used." if len(selected_rows) > 3 else ""
+            if len(drivers) == 1:
+                message = f"Selected driver: {drivers[0]}. Use the lap controls for detailed telemetry."
+            else:
+                message = (
+                    f"Selected drivers: {', '.join(drivers)}. "
+                    "Telemetry plots compare each selected driver's fastest lap."
+                )
+            return drivers[0], limited_update, f"{message}{suffix}"
 
         @app.callback(
-            Output("lap-dropdown", "options"),
-            Output("lap-dropdown", "value"),
+            Output("lap-table-title-1", "children"),
+            Output("lap-selection-table-1", "columns"),
+            Output("lap-selection-table-1", "data"),
+            Output("lap-selection-table-1", "selected_rows"),
+            Output("lap-table-panel-1", "style"),
+            Output("lap-table-title-2", "children"),
+            Output("lap-selection-table-2", "columns"),
+            Output("lap-selection-table-2", "data"),
+            Output("lap-selection-table-2", "selected_rows"),
+            Output("lap-table-panel-2", "style"),
+            Output("lap-table-title-3", "children"),
+            Output("lap-selection-table-3", "columns"),
+            Output("lap-selection-table-3", "data"),
+            Output("lap-selection-table-3", "selected_rows"),
+            Output("lap-table-panel-3", "style"),
+            Output("lap-selection-status", "children"),
             Output("telemetry-load-status", "children"),
             Output("telemetry-load-status", "style"),
-            Input("driver-dropdown", "value"),
-            Input("bundle-store", "data"),
+            Input("results-table", "selected_rows"),
+            State("results-table", "data"),
+            State("bundle-store", "data"),
         )
-        def update_lap_dropdown(driver, bundle_data):
-            status_style = {"color": "#888", "fontSize": "0.8em", "marginTop": "6px"}
-            if not driver:
-                return [], [], "", status_style
+        def update_lap_selection_table(selected_rows, rows, bundle_data):
+            status_style = {"color": "#888", "fontSize": "0.8em", "marginBottom": "14px"}
+            hidden_panel = {"display": "none"}
+            drivers = cls._drivers_from_selected_rows(selected_rows, rows)
+            if not drivers:
+                outputs = []
+                for _ in range(3):
+                    outputs.extend(["", [], [], [], hidden_panel])
+                return (*outputs, "Select drivers first.", "", status_style)
             bundle, telemetry_df = instance._retrieve_cached_bundle(bundle_data)
             if bundle is None:
-                return [], [], "Load a session before selecting laps.", {**status_style, "color": "#fbbf24"}
+                outputs = []
+                for _ in range(3):
+                    outputs.extend(["", [], [], [], hidden_panel])
+                return (*outputs, "Load a session before selecting laps.", "Load a session first.", {**status_style, "color": "#fbbf24"})
 
-            driver = str(driver)
-
-            # Load telemetry on-demand for this driver from cached session
-            if telemetry_df.empty or driver not in telemetry_df["Driver"].values:
-                bd = bundle_data or {}
-                year, event, sc = bd.get("year"), bd.get("event"), bd.get("session")
-                if year and event and sc:
+            bd = bundle_data or {}
+            year, event, sc = bd.get("year"), bd.get("event"), bd.get("session")
+            messages = []
+            for driver in drivers:
+                if telemetry_df.empty or driver not in telemetry_df["Driver"].astype(str).values:
                     try:
                         result = session_service.load_driver_telemetry(year, event, sc, driver)
                         bundle = result.bundle
                         instance._session_cache[bd.get("cache_key")] = bundle
                         telemetry_df = cls._clean_telemetry_dataframe(bundle.telemetry)
-                        message = result.message
-                        message_color = "#4ade80" if result.source == "local" else "#fbbf24"
+                        messages.append(result.message)
                     except Exception as e:
-                        return [], [], f"Could not load telemetry: {e}", {**status_style, "color": "#ef4444"}
-                else:
-                    return [], [], "Session metadata is missing; reload the session.", {**status_style, "color": "#ef4444"}
-            else:
-                message = f"Loaded {driver} telemetry from memory."
-                message_color = "#4ade80"
+                        messages.append(f"Could not load {driver}: {e}")
 
-            if telemetry_df.empty:
-                return [], [], (
-                    f"No usable telemetry/lap data available for {driver}. "
-                    "The session may only have results cached, or FastF1 may be rate-limited."
-                ), {**status_style, "color": "#fbbf24"}
+            summary = cls._summary_for_drivers(telemetry_df, drivers)
+            outputs = []
+            for idx in range(3):
+                if idx >= len(drivers):
+                    outputs.extend(["", [], [], [], hidden_panel])
+                    continue
+                driver = drivers[idx]
+                table = cls._top_lap_table_for_driver(summary, driver, limit=10)
+                title = f"{driver}: 10 fastest laps"
+                selected = [0] if not table.empty else []
+                panel_style = {"display": "block"}
+                outputs.extend([title, cls._lap_table_columns(table), table.to_dict("records"), selected, panel_style])
+            selection_text = (
+                "Each driver table shows the 10 fastest laps. "
+                "The fastest lap is selected by default; select rows to choose exact laps for telemetry."
+            )
+            telemetry_text = " | ".join(messages) if messages else "Telemetry ready from local cache."
+            color = "#ef4444" if any("Could not" in msg for msg in messages) else "#4ade80"
+            return (*outputs, selection_text, telemetry_text, {**status_style, "color": color})
 
-            laps = get_driver_laps(telemetry_df, driver)
-            default_laps = cls._select_default_laps(telemetry_df, driver, laps)
-            return cls._to_lap_dropdown_options(laps), default_laps, message, {**status_style, "color": message_color}
+        @app.callback(
+            Output("track-lap-label-1", "children"),
+            Output("track-lap-dropdown-1", "options"),
+            Output("track-lap-dropdown-1", "value"),
+            Output("track-lap-control-1", "style"),
+            Output("track-lap-label-2", "children"),
+            Output("track-lap-dropdown-2", "options"),
+            Output("track-lap-dropdown-2", "value"),
+            Output("track-lap-control-2", "style"),
+            Output("track-lap-label-3", "children"),
+            Output("track-lap-dropdown-3", "options"),
+            Output("track-lap-dropdown-3", "value"),
+            Output("track-lap-control-3", "style"),
+            Input("results-table", "selected_rows"),
+            State("results-table", "data"),
+            State("bundle-store", "data"),
+        )
+        def update_track_lap_controls(selected_rows, rows, bundle_data):
+            drivers = cls._drivers_from_selected_rows(selected_rows, rows)
+            bundle, telemetry_df = instance._retrieve_cached_bundle(bundle_data)
+            outputs = []
+            for idx in range(3):
+                if idx >= len(drivers) or bundle is None:
+                    outputs.extend(["", [], None, {"display": "none"}])
+                    continue
+                driver = drivers[idx]
+                bd = bundle_data or {}
+                year, event, sc = bd.get("year"), bd.get("event"), bd.get("session")
+                if telemetry_df.empty or driver not in telemetry_df["Driver"].astype(str).values:
+                    try:
+                        result = session_service.load_driver_telemetry(year, event, sc, driver)
+                        instance._session_cache[bd.get("cache_key")] = result.bundle
+                        telemetry_df = cls._clean_telemetry_dataframe(result.bundle.telemetry)
+                    except Exception:
+                        outputs.extend([driver, [], None, {"display": "block"}])
+                        continue
+                laps = get_driver_laps(telemetry_df, driver)
+                options = cls._to_lap_dropdown_options(laps)
+                default = cls._select_default_laps(telemetry_df, driver, laps)
+                outputs.extend([f"{driver} track lap", options, default[0] if default else None, {"display": "block"}])
+            return tuple(outputs)
 
         @app.callback(
             Output("kpi-laps", "children"),
@@ -697,102 +1046,110 @@ class DashboardCallbackRegistry:
             Output("kpi-samples", "children"),
             Output("kpi-best-lap", "children"),
             Output("lap-summary-graph", "figure"),
-            Output("lap-summary-table", "columns"),
-            Output("lap-summary-table", "data"),
             Output("speed-graph", "figure"),
             Output("gear-graph", "figure"),
             Output("inputs-graph", "figure"),
             Output("trackmap-graph", "figure"),
             Output("gear-map-graph", "figure"),
             Input("driver-dropdown", "value"),
-            Input("lap-dropdown", "value"),
             Input("bundle-store", "data"),
+            Input("results-table", "selected_rows"),
+            Input("lap-selection-table-1", "selected_rows"),
+            Input("lap-selection-table-2", "selected_rows"),
+            Input("lap-selection-table-3", "selected_rows"),
+            Input("track-lap-dropdown-1", "value"),
+            Input("track-lap-dropdown-2", "value"),
+            Input("track-lap-dropdown-3", "value"),
+            State("results-table", "data"),
+            State("lap-selection-table-1", "data"),
+            State("lap-selection-table-2", "data"),
+            State("lap-selection-table-3", "data"),
         )
-        def update_dashboard(driver, selected_laps, bundle_data):
-            if not driver or not selected_laps:
+        def update_dashboard(
+            driver,
+            bundle_data,
+            selected_rows,
+            selected_lap_rows_1,
+            selected_lap_rows_2,
+            selected_lap_rows_3,
+            track_lap_1,
+            track_lap_2,
+            track_lap_3,
+            rows,
+            lap_table_rows_1,
+            lap_table_rows_2,
+            lap_table_rows_3,
+        ):
+            selected_drivers = cls._drivers_from_selected_rows(selected_rows, rows, fallback=driver)
+            if not selected_drivers and driver:
+                selected_drivers = [str(driver)]
+            if not selected_drivers:
                 return cls._empty_dashboard()
 
             bundle, telemetry_df = instance._retrieve_cached_bundle(bundle_data)
             if bundle is None:
                 return cls._empty_dashboard()
 
-            driver = str(driver)
-            selected_laps = [int(x) for x in selected_laps]
-            lap_df = get_multiple_laps_telemetry(telemetry_df, driver, selected_laps)
-            summary_df = get_lap_summary(telemetry_df, driver, selected_laps)
+            bd = bundle_data or {}
+            year, event, sc = bd.get("year"), bd.get("event"), bd.get("session")
+            for selected_driver in selected_drivers:
+                if telemetry_df.empty or selected_driver not in telemetry_df["Driver"].astype(str).values:
+                    if not year or not event or not sc:
+                        continue
+                    try:
+                        result = session_service.load_driver_telemetry(year, event, sc, selected_driver)
+                        bundle = result.bundle
+                        instance._session_cache[bd.get("cache_key")] = bundle
+                        telemetry_df = cls._clean_telemetry_dataframe(bundle.telemetry)
+                    except Exception:
+                        continue
+
+            lap_frames = []
+            for table_rows, selected_lap_rows in [
+                (lap_table_rows_1, selected_lap_rows_1),
+                (lap_table_rows_2, selected_lap_rows_2),
+                (lap_table_rows_3, selected_lap_rows_3),
+            ]:
+                if not table_rows:
+                    continue
+                rows_to_use = selected_lap_rows if selected_lap_rows else [0]
+                frame = cls._selected_lap_rows_to_df(table_rows, rows_to_use)
+                if not frame.empty:
+                    lap_frames.append(frame)
+            lap_rows_df = pd.concat(lap_frames, ignore_index=True) if lap_frames else pd.DataFrame()
+            if not lap_rows_df.empty and "Driver" in lap_rows_df.columns:
+                lap_rows_df = lap_rows_df[lap_rows_df["Driver"].astype(str).isin(selected_drivers)].copy()
+            if lap_rows_df.empty:
+                summary_df = cls._summary_for_drivers(telemetry_df, selected_drivers)
+                defaults = []
+                for selected_driver in selected_drivers:
+                    driver_table = cls._top_lap_table_for_driver(summary_df, selected_driver, limit=10)
+                    if not driver_table.empty:
+                        defaults.append(driver_table.iloc[[0]])
+                lap_rows_df = pd.concat(defaults, ignore_index=True) if defaults else pd.DataFrame()
+
+            lap_df = cls._telemetry_from_lap_rows(telemetry_df, lap_rows_df)
+            selected_summary_df = cls._summary_from_telemetry(lap_df)
+            all_summary_df = cls._summary_for_drivers(telemetry_df, selected_drivers)
+            selected_count = len(selected_summary_df) if not selected_summary_df.empty else len(lap_rows_df)
+            track_df = cls._track_telemetry_for_drivers(
+                telemetry_df,
+                selected_drivers,
+                [track_lap_1, track_lap_2, track_lap_3],
+            )
 
             if lap_df.empty:
                 return (
-                    f"Selected Laps: {len(selected_laps)}",
+                    f"Selected Laps: {selected_count}",
                     "Max Speed: n/a", "Samples: 0", "Best Lap: n/a",
                     *cls._empty_dashboard()[4:],
                 )
 
-            kpis = cls._compute_kpi_strings(lap_df, summary_df, len(selected_laps))
-            charts = cls._build_all_charts(lap_df, summary_df, len(selected_laps))
+            kpis = cls._compute_kpi_strings(lap_df, selected_summary_df, selected_count)
+            charts = cls._build_all_charts(lap_df, all_summary_df, selected_count, track_df)
 
             return (
                 *kpis,
                 charts[0],
-                cls._to_datatable_columns(summary_df),
-                summary_df.to_dict("records"),
                 *charts[1:],
             )
-
-        
-        @app.callback(
-            Output("comparison-graph", "figure"),
-            Output("comparison-section", "style"),
-            Input("compare-driver-dropdown", "value"),
-            Input("driver-dropdown", "value"),
-            Input("bundle-store", "data"),
-            prevent_initial_call=True,
-        )
-        def update_comparison(compare_driver, main_driver, bundle_data):
-            hidden = {"display": "none"}
-            card_visible = {
-                "background": "#1a1a2e", "borderRadius": "10px", "padding": "16px",
-                "border": "1px solid #333", "marginBottom": "20px",
-            }
-
-            if not compare_driver or not main_driver or compare_driver == main_driver:
-                return cls._empty_fig("Driver Comparison"), hidden
-
-            bd = bundle_data or {}
-            year, event, sc = bd.get("year"), bd.get("event"), bd.get("session")
-            if not year or not event or not sc:
-                return cls._empty_fig("Driver Comparison"), hidden
-
-            try:
-                tel1 = session_service.load_driver_telemetry(year, event, sc, main_driver).telemetry
-                tel2 = session_service.load_driver_telemetry(year, event, sc, compare_driver).telemetry
-            except Exception:
-                return cls._empty_fig("Driver Comparison"), hidden
-
-            if tel1.empty or tel2.empty:
-                return cls._empty_fig("Driver Comparison"), hidden
-
-            # Use fastest lap for each driver
-            def _fastest_lap_tel(tel_df, driver):
-                df = tel_df[tel_df["Driver"].astype(str) == str(driver)]
-                if df.empty or "LapTimeSeconds" not in df.columns:
-                    return df
-                valid = df[df["LapTimeSeconds"].notna()]
-                if valid.empty:
-                    return df
-                best_lap = valid.loc[valid["LapTimeSeconds"].idxmin(), "LapNumber"]
-                return df[df["LapNumber"] == best_lap].copy()
-
-            t1 = _fastest_lap_tel(tel1, main_driver)
-            t2 = _fastest_lap_tel(tel2, compare_driver)
-
-            if t1.empty or t2.empty:
-                return cls._empty_fig("Driver Comparison"), hidden
-
-            # Get lap times for subtitle
-            lt1 = str(t1["LapTime"].iloc[0]) if "LapTime" in t1.columns and t1["LapTime"].notna().any() else ""
-            lt2 = str(t2["LapTime"].iloc[0]) if "LapTime" in t2.columns and t2["LapTime"].notna().any() else ""
-
-            title = f"{year} {event} — {sc} Telemetry"
-            fig = DriverComparisonChart(t1, t2, main_driver, compare_driver, title, lt1, lt2).render()
-            return fig, card_visible

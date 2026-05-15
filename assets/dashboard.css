@@ -20,6 +20,12 @@
     color: #e0e0e0 !important;
 }
 
+.Select.has-value.Select--single > .Select-control .Select-value .Select-value-label,
+.Select.has-value.is-pseudo-focused.Select--single > .Select-control .Select-value .Select-value-label,
+.Select-value-label {
+    color: #e0e0e0 !important;
+}
+
 .Select-control .Select-input > input {
     color: #e0e0e0 !important;
 }
@@ -47,4 +53,21 @@
 .is-disabled .Select-value-label {
     color: #888 !important;
     background-color: #1a1a2e !important;
+}
+
+@media (max-width: 1100px) {
+    .race-overview-grid,
+    .race-chart-grid,
+    .driver-analysis-grid,
+    .telemetry-grid,
+    .track-map-controls-grid,
+    .lap-table-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+@media (max-width: 760px) {
+    .kpi-grid {
+        grid-template-columns: 1fr 1fr !important;
+    }
 }
