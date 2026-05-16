@@ -17,7 +17,7 @@ def make_bundle(results=None, laps=None, telemetry=None):
     )
 
 
-@patch('session_service.SessionRepository')
+@patch('src.session_service.SessionRepository')
 def test_load_session_overview_uses_local_if_laps_exist(mock_repo_cls):
     repo = Mock()
     bundle = make_bundle(laps=pd.DataFrame([{'LapNumber': 1}]))
@@ -29,8 +29,8 @@ def test_load_session_overview_uses_local_if_laps_exist(mock_repo_cls):
     assert 'local database' in result.message
 
 
-@patch('session_service.load_session_quick')
-@patch('session_service.SessionRepository')
+@patch('src.session_service.load_session_quick')
+@patch('src.session_service.SessionRepository')
 def test_load_session_overview_fetches_and_saves(mock_repo_cls, mock_load_quick):
     repo = Mock()
     repo.load_session.return_value = None
@@ -43,8 +43,8 @@ def test_load_session_overview_fetches_and_saves(mock_repo_cls, mock_load_quick)
     repo.save_session.assert_called_once()
 
 
-@patch('session_service.load_session_quick', side_effect=RuntimeError('boom'))
-@patch('session_service.SessionRepository')
+@patch('src.session_service.load_session_quick', side_effect=RuntimeError('boom'))
+@patch('src.session_service.SessionRepository')
 def test_load_session_overview_returns_partial_on_fetch_error(mock_repo_cls, _):
     repo = Mock()
     partial = make_bundle(results=pd.DataFrame([{'Driver': 'HAM'}]), laps=pd.DataFrame())
@@ -56,8 +56,8 @@ def test_load_session_overview_returns_partial_on_fetch_error(mock_repo_cls, _):
     assert 'partial local data' in result.message
 
 
-@patch('session_service.load_driver_telemetry')
-@patch('session_service.SessionRepository')
+@patch('src.session_service.load_driver_telemetry')
+@patch('src.session_service.SessionRepository')
 def test_load_driver_telemetry_uses_local_slice(mock_repo_cls, mock_load_driver):
     repo = Mock()
     telemetry = pd.DataFrame([{'Driver': 'HAM', 'Speed': 300}, {'Driver': 'VER', 'Speed': 310}])
@@ -70,8 +70,8 @@ def test_load_driver_telemetry_uses_local_slice(mock_repo_cls, mock_load_driver)
     mock_load_driver.assert_not_called()
 
 
-@patch('session_service.load_driver_telemetry')
-@patch('session_service.SessionRepository')
+@patch('src.session_service.load_driver_telemetry')
+@patch('src.session_service.SessionRepository')
 def test_load_driver_telemetry_fetches_when_missing(mock_repo_cls, mock_load_driver):
     repo = Mock()
     stored = make_bundle(results=pd.DataFrame([{'Driver': 'HAM'}]), laps=pd.DataFrame([{'LapNumber': 1}]), telemetry=pd.DataFrame())
