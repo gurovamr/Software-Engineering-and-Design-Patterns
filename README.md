@@ -7,6 +7,7 @@
 ![GitHub Repo Badge](https://img.shields.io/badge/github-repo-blue?logo=github)
 [![License: Unlicense](https://img.shields.io/badge/License-Unlicense-blue.svg)](./LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![Python CI/CD](https://github.com/gurovamr/Software-Engineering-and-Design-Patterns/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/gurovamr/Software-Engineering-and-Design-Patterns/actions/workflows/ci-cd.yml)
 [![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
 
 This is the group project for the course of *Software Engineering and Design Patterns*, for the Spring 2026 semester of the ZHAW Master in Life Sciences.
