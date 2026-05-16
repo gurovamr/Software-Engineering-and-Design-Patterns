@@ -32,8 +32,8 @@ class TestDarkThemeConfig:
 class TestF1ColorPalette:
     def test_team_and_compound_colors_return_strings(self):
         # use the exact method names from your code
-        color_team = F1ColorPalette.getteamcolor("Mercedes")
-        color_compound = F1ColorPalette.getcompoundcolor("soft")
+        color_team = F1ColorPalette.get_team_color("Mercedes")
+        color_compound = F1ColorPalette.get_compound_color("soft")
         assert isinstance(color_team, str)
         assert isinstance(color_compound, str)
 
@@ -41,7 +41,7 @@ class TestF1ColorPalette:
 class TestBaseChart:
     def test_empty_figure_has_title_and_height(self):
         # use the actual staticmethod name
-        fig = BaseChart.emptyfigure("Title", height=500)
+        fig = BaseChart.empty_figure("Title", height=500)
         assert isinstance(fig, go.Figure)
         assert fig.layout.title.text == "Title"
         assert fig.layout.height == 500
