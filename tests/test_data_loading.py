@@ -7,7 +7,7 @@ import pandas as pd
 from src.data_loading import FastF1Source, SessionRequest, TelemetryBundle, _enable_fastf1_cache
 
 
-@patch('data_loading.fastf1.Cache.enable_cache')
+@patch('src.data_loading.fastf1.Cache.enable_cache')
 def test_enable_fastf1_cache_creates_and_enables(mock_enable, tmp_path):
     path = _enable_fastf1_cache(tmp_path / 'cache')
     assert path.exists()
