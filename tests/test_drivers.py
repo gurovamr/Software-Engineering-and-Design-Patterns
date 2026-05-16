@@ -16,7 +16,7 @@ def test_from_results_prefers_first_available_column():
     assert F1DriverQuery.from_results(results) == ['HAM', 'VER']
 
 
-@patch('src.drivers.load_session_quick')
+@patch('src.database.drivers.load_session_quick')
 def test_for_session_uses_results_then_laps(mock_load):
     mock_load.return_value = SimpleNamespace(
         results=pd.DataFrame({'Driver': ['VER', 'HAM']}),
