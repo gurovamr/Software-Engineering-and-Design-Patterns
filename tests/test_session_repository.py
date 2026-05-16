@@ -1,6 +1,5 @@
 import pandas as pd
 
-from session_repository import SessionRepository
 from src.database.session_repository import SessionRepository
 
 

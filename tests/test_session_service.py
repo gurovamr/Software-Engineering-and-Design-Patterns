@@ -1,7 +1,6 @@
 import pandas as pd
 from unittest.mock import Mock, patch
 
-from session_service import EventCacheResult, SessionService
 from src.session_service import EventCacheResult, SessionService
 
 
