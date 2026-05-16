@@ -1,7 +1,7 @@
 import pandas as pd
 
 from session_repository import SessionRepository
-from data_loading import TelemetryBundle
+from src.database.session_repository import SessionRepository
 
 
 def make_bundle(results=None, laps=None, telemetry=None):

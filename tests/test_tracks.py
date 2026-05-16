@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from tracks import F1TrackQuery
+from src.database.tracks import F1TrackQuery
 
 
 @patch('tracks.get_schedule_events', return_value=['Monza', 'Spa'])

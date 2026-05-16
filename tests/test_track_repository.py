@@ -1,6 +1,6 @@
 import pytest
 
-from track_repository import TrackRepository
+from src.database.track_repository import TrackRepository
 
 
 def test_upsert_and_get_events(tmp_path):

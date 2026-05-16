@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from drivers import F1DriverQuery
+from src.database.drivers import F1DriverQuery
 
 
 def test_from_laps_returns_sorted_unique_drivers():

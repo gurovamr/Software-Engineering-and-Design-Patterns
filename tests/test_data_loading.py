@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 import pandas as pd
 
-from data_loading import FastF1Source, SessionRequest, TelemetryBundle, _enable_fastf1_cache
+from src.data_loading import FastF1Source, SessionRequest, TelemetryBundle, _enable_fastf1_cache
 
 
 @patch('data_loading.fastf1.Cache.enable_cache')

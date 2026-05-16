@@ -1,4 +1,4 @@
-from user_repository import UserRepository
+from src.database.user_repository import UserRepository
 
 
 def test_create_find_exists_update_and_popular(tmp_path):

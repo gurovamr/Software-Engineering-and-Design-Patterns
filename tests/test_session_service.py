@@ -2,7 +2,7 @@ import pandas as pd
 from unittest.mock import Mock, patch
 
 from session_service import EventCacheResult, SessionService
-from data_loading import TelemetryBundle
+from src.session_service import EventCacheResult, SessionService
 
 
 def make_bundle(results=None, laps=None, telemetry=None):

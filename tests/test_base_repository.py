@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
 
-from base_repository import BaseRepository
+from src.database.base_repository import BaseRepository
 
 
 class DummyRepository(BaseRepository):

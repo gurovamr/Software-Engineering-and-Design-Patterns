@@ -1,4 +1,4 @@
-from sync_repository import SyncRepository
+from src.database.sync_repository import SyncRepository
 
 
 def test_save_and_get_state(tmp_path):
