@@ -1,0 +1,15 @@
+pandas>=2.2,<2.3
+numpy>=1.26,<2
+matplotlib>=3.8,<4
+jupyter
+notebook
+ipykernel
+streamlit
+plotly
+dash
+pytest>=7.4.0
+pytest-cov>=4.1.0
+flake8>=6.1.0
+pytest>=7.4.0
+pytest-cov>=4.1.0
+flake8>=6.1.0
