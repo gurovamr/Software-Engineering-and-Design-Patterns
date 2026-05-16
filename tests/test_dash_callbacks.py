@@ -64,11 +64,21 @@ class TestEmptyDashboard:
     def test_empty_dashboard_tuple_shape(self):
         reg = _make_registry()
         result = reg._empty_dashboard()
+
+        # Updated expected length: 11 items
         assert isinstance(result, tuple)
-        # in your code this tuple has 10 elements (4 KPI strings + 6 figures)
-        assert len(result) == 10
-        for fig in result[4:]:
+        assert len(result) == 11
+
+        # First four are KPI strings
+        for s in result[:4]:
+            assert isinstance(s, str)
+
+        # Next six are Plotly figures
+        for fig in result[4:10]:
             assert isinstance(fig, go.Figure)
+
+        # Last element is currently a placeholder (None)
+        assert result[10] is None
 
 
 class TestRegister:
