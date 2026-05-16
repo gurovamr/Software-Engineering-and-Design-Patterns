@@ -7,6 +7,13 @@ import pandas as pd
 import fastf1
 
 
+def _enable_fastf1_cache(cache_dir: str | Path) -> Path:
+    cache_path = Path(cache_dir)
+    cache_path.mkdir(parents=True, exist_ok=True)
+    fastf1.Cache.enable_cache(str(cache_path))
+    return cache_path
+
+
 @dataclass(frozen=True)
 class SessionRequest:
     """
@@ -78,9 +85,7 @@ class FastF1Source(TelemetrySource):
     """
 
     def __init__(self, cache_dir: str | Path = "cache") -> None:
-        self._cache_dir = Path(cache_dir)
-        self._cache_dir.mkdir(parents=True, exist_ok=True)
-        fastf1.Cache.enable_cache(str(self._cache_dir))
+        self._cache_dir = _enable_fastf1_cache(cache_dir)
 
     @staticmethod
     def _safe_copy_session_attr(session, attr_name: str) -> pd.DataFrame:
@@ -434,9 +439,7 @@ class F1SessionBundleCache:
     @staticmethod
     def preload(year: int, event: str, session_code: str, cache_dir: str | Path = "cache"):
         """Download laps + telemetry into FastF1 disk cache (no merging)."""
-        cache_path = Path(cache_dir)
-        cache_path.mkdir(parents=True, exist_ok=True)
-        fastf1.Cache.enable_cache(str(cache_path))
+        _enable_fastf1_cache(cache_dir)
 
         session = fastf1.get_session(year, event, session_code)
         session.load(laps=True, telemetry=True, weather=False, messages=False)
@@ -462,7 +465,7 @@ class F1ScheduleService:
         if year in self._event_cache:
             return self._event_cache[year]
 
-        fastf1.Cache.enable_cache(self._cache_dir)
+        _enable_fastf1_cache(self._cache_dir)
         try:
             schedule = fastf1.get_event_schedule(year, include_testing=False)
         except Exception:
@@ -483,9 +486,7 @@ class F1ScheduleService:
         cache_dir: str | Path = "cache",
     ) -> list[str]:
         """Return events that have non-empty lap data available."""
-        cache_path = Path(cache_dir)
-        cache_path.mkdir(parents=True, exist_ok=True)
-        fastf1.Cache.enable_cache(str(cache_path))
+        _enable_fastf1_cache(cache_dir)
 
         try:
             schedule = fastf1.get_event_schedule(year, include_testing=False)

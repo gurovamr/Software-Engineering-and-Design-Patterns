@@ -35,6 +35,12 @@ class SessionRepository(BaseRepository):
                 )
                 """
             )
+            columns = {
+                row["name"]
+                for row in conn.execute("PRAGMA table_info(sessions)").fetchall()
+            }
+            if "session_info" not in columns:
+                conn.execute("ALTER TABLE sessions ADD COLUMN session_info TEXT DEFAULT '{}'")
 
     @staticmethod
     def _df_to_json(df: pd.DataFrame) -> str:
