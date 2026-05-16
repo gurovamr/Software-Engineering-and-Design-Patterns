@@ -261,6 +261,7 @@ def _sidebar():
             ),
             dcc.Store(id="bundle-store"),
             dcc.Store(id="results-store"),
+            dcc.Store(id="track-telemetry-store"),
         ],
     )
 
@@ -507,9 +508,13 @@ def _dashboard_page():
                                         "Lap Times for Selected Drivers",
                                         style={"fontWeight": "bold", "marginBottom": "8px"},
                                     ),
-                                    dcc.Graph(
-                                        id="lap-summary-graph",
-                                        figure=empty_fig("Lap Times for Selected Drivers"),
+                                    dcc.Loading(
+                                        id="loading-lap-summary",
+                                        type="circle",
+                                        children=dcc.Graph(
+                                            id="lap-summary-graph",
+                                            figure=empty_fig("Lap Times for Selected Drivers"),
+                                        ),
                                     ),
                                     html.Div(
                                         id="lap-selection-status",
@@ -519,18 +524,22 @@ def _dashboard_page():
                                         id="telemetry-load-status",
                                         style={"color": _MUTED, "fontSize": "0.8em", "marginBottom": "10px"},
                                     ),
-                                    html.Div(
-                                        className="lap-table-grid",
-                                        style={
-                                            "display": "grid",
-                                            "gridTemplateColumns": "repeat(3, minmax(220px, 1fr))",
-                                            "gap": "14px",
-                                        },
-                                        children=[
-                                            _lap_table_panel(1),
-                                            _lap_table_panel(2),
-                                            _lap_table_panel(3),
-                                        ],
+                                    dcc.Loading(
+                                        id="loading-lap-tables",
+                                        type="circle",
+                                        children=html.Div(
+                                            className="lap-table-grid",
+                                            style={
+                                                "display": "grid",
+                                                "gridTemplateColumns": "repeat(3, minmax(220px, 1fr))",
+                                                "gap": "14px",
+                                            },
+                                            children=[
+                                                _lap_table_panel(1),
+                                                _lap_table_panel(2),
+                                                _lap_table_panel(3),
+                                            ],
+                                        ),
                                     ),
                                 ],
                             ),
@@ -543,36 +552,56 @@ def _dashboard_page():
                                     "marginBottom": "20px",
                                 },
                                 children=[
-                                    dcc.Graph(id="speed-graph", figure=empty_fig("Speed")),
-                                    dcc.Graph(id="gear-graph", figure=empty_fig("Gear")),
+                                    dcc.Loading(
+                                        id="loading-speed-graph",
+                                        type="circle",
+                                        children=dcc.Graph(id="speed-graph", figure=empty_fig("Speed")),
+                                    ),
+                                    dcc.Loading(
+                                        id="loading-gear-graph",
+                                        type="circle",
+                                        children=dcc.Graph(id="gear-graph", figure=empty_fig("Gear")),
+                                    ),
                                 ],
                             ),
-                            dcc.Graph(id="inputs-graph", figure=empty_fig("Throttle / Brake"), style={"marginBottom": "20px"}),
+                            dcc.Loading(
+                                id="loading-inputs-graph",
+                                type="circle",
+                                children=dcc.Graph(
+                                    id="inputs-graph",
+                                    figure=empty_fig("Throttle / Brake"),
+                                    style={"marginBottom": "20px"},
+                                ),
+                            ),
                             html.Div(
                                 style={**_CARD_STYLE, "marginBottom": "20px"},
                                 children=[
                                     html.Div("Track Map Laps", style={"fontWeight": "bold", "marginBottom": "10px"}),
-                                    html.Div(
-                                        className="track-map-controls-grid",
-                                        style={
-                                            "display": "grid",
-                                            "gridTemplateColumns": "repeat(3, minmax(180px, 1fr))",
-                                            "gap": "12px",
-                                        },
-                                        children=[
-                                            html.Div(id="track-lap-control-1", children=[
-                                                html.Label(id="track-lap-label-1", style=_LABEL_STYLE),
-                                                dcc.Dropdown(id="track-lap-dropdown-1", options=[], value=None, clearable=False),
-                                            ]),
-                                            html.Div(id="track-lap-control-2", children=[
-                                                html.Label(id="track-lap-label-2", style=_LABEL_STYLE),
-                                                dcc.Dropdown(id="track-lap-dropdown-2", options=[], value=None, clearable=False),
-                                            ]),
-                                            html.Div(id="track-lap-control-3", children=[
-                                                html.Label(id="track-lap-label-3", style=_LABEL_STYLE),
-                                                dcc.Dropdown(id="track-lap-dropdown-3", options=[], value=None, clearable=False),
-                                            ]),
-                                        ],
+                                    dcc.Loading(
+                                        id="loading-track-lap-controls",
+                                        type="circle",
+                                        children=html.Div(
+                                            className="track-map-controls-grid",
+                                            style={
+                                                "display": "grid",
+                                                "gridTemplateColumns": "repeat(3, minmax(180px, 1fr))",
+                                                "gap": "12px",
+                                            },
+                                            children=[
+                                                html.Div(id="track-lap-control-1", children=[
+                                                    html.Label(id="track-lap-label-1", style=_LABEL_STYLE),
+                                                    dcc.Dropdown(id="track-lap-dropdown-1", options=[], value=None, clearable=False),
+                                                ]),
+                                                html.Div(id="track-lap-control-2", children=[
+                                                    html.Label(id="track-lap-label-2", style=_LABEL_STYLE),
+                                                    dcc.Dropdown(id="track-lap-dropdown-2", options=[], value=None, clearable=False),
+                                                ]),
+                                                html.Div(id="track-lap-control-3", children=[
+                                                    html.Label(id="track-lap-label-3", style=_LABEL_STYLE),
+                                                    dcc.Dropdown(id="track-lap-dropdown-3", options=[], value=None, clearable=False),
+                                                ]),
+                                            ],
+                                        ),
                                     ),
                                 ],
                             ),
@@ -584,8 +613,22 @@ def _dashboard_page():
                                     "marginBottom": "20px",
                                 },
                                 children=[
-                                    dcc.Graph(id="trackmap-graph", figure=empty_fig("Track Map")),
-                                    dcc.Graph(id="gear-map-graph", figure=empty_fig("Gear Shifts on Track")),
+                                    dcc.Loading(
+                                        id="loading-trackmap-graph",
+                                        type="circle",
+                                        children=dcc.Graph(
+                                            id="trackmap-graph",
+                                            figure=empty_fig("Track Map"),
+                                        ),
+                                    ),
+                                    dcc.Loading(
+                                        id="loading-gear-map-graph",
+                                        type="circle",
+                                        children=dcc.Graph(
+                                            id="gear-map-graph",
+                                            figure=empty_fig("Gear Shifts on Track"),
+                                        ),
+                                    ),
                                 ],
                             ),
 

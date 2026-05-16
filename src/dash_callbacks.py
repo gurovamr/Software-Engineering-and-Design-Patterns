@@ -86,6 +86,7 @@ class DashboardCallbackRegistry:
             cls._empty_fig("Throttle / Brake"),
             cls._empty_fig("Track Map"),
             cls._empty_fig("Gear Shifts on Track"),
+            None,
         )
 
     def _store_session_bundle(self, year, event, session_code, bundle):
@@ -290,33 +291,150 @@ class DashboardCallbackRegistry:
         return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
     @staticmethod
+    def _track_store_data(track_df):
+        if track_df is None or track_df.empty:
+            return []
+        columns = [
+            "TraceLabel", "Driver", "LapNumber", "Distance",
+            "Speed", "Throttle", "Brake", "nGear", "X", "Y",
+        ]
+        safe = track_df[[col for col in columns if col in track_df.columns]].copy()
+        return safe.astype(object).where(pd.notna(safe), None).to_dict("records")
+
+    @staticmethod
+    def _track_store_frame(data):
+        if not data:
+            return pd.DataFrame()
+        return pd.DataFrame(data)
+
+    @staticmethod
+    def _track_hover_distance(hover_data):
+        if not hover_data or not hover_data.get("points"):
+            return None
+        point = hover_data["points"][0]
+        customdata = point.get("customdata") or []
+        if len(customdata) >= 4:
+            return pd.to_numeric(customdata[3], errors="coerce")
+        return pd.to_numeric(point.get("x"), errors="coerce")
+
+    @staticmethod
+    def _track_hover_columns(df):
+        columns = ["TraceLabel", "Driver", "LapNumber", "Distance", "Speed", "Throttle", "Brake", "nGear"]
+        out = df.copy()
+        for col in columns:
+            if col not in out.columns:
+                out[col] = None
+        return out, columns
+
+    @staticmethod
+    def _track_hover_text(row):
+        driver = row.get("Driver", "")
+        lap = row.get("LapNumber", "")
+        distance = pd.to_numeric(row.get("Distance"), errors="coerce")
+        speed = pd.to_numeric(row.get("Speed"), errors="coerce")
+        throttle = pd.to_numeric(row.get("Throttle"), errors="coerce")
+        brake = row.get("Brake", "")
+        gear = pd.to_numeric(row.get("nGear"), errors="coerce")
+
+        parts = [str(row.get("TraceLabel", driver))]
+        if pd.notna(lap):
+            parts.append(f"Lap {int(lap)}")
+        if pd.notna(distance):
+            parts.append(f"{distance:.1f} m")
+        if pd.notna(speed):
+            parts.append(f"Speed {speed:.1f} km/h")
+        if pd.notna(throttle):
+            parts.append(f"Throttle {throttle:.0f}%")
+        if pd.notna(brake) and str(brake) != "":
+            parts.append(f"Brake {brake}")
+        if pd.notna(gear):
+            parts.append(f"Gear {int(gear)}")
+        return "<br>".join(parts)
+
+    @staticmethod
+    def _track_hover_badge(row):
+        speed = pd.to_numeric(row.get("Speed"), errors="coerce")
+        gear = pd.to_numeric(row.get("nGear"), errors="coerce")
+        parts = [str(row.get("TraceLabel", ""))]
+        if pd.notna(speed):
+            parts.append(f"{speed:.0f} km/h")
+        if pd.notna(gear):
+            parts.append(f"G{int(gear)}")
+        return "<br>".join(parts)
+
+    @classmethod
+    def _nearest_track_points(cls, track_df, labels, hover_distance):
+        if hover_distance is None or pd.isna(hover_distance) or "Distance" not in track_df.columns:
+            return {}
+        points = {}
+        for label in labels:
+            df = track_df[track_df["TraceLabel"].astype(str) == str(label)].copy()
+            if df.empty:
+                continue
+            distances = pd.to_numeric(df["Distance"], errors="coerce")
+            if distances.isna().all():
+                continue
+            idx = (distances - float(hover_distance)).abs().idxmin()
+            points[label] = df.loc[idx]
+        return points
+
+    @staticmethod
     def _empty_track_grid(title):
         return BaseChart.empty_figure(title, height=420)
 
     @classmethod
-    def _build_speed_track_grid(cls, track_df):
+    def _build_speed_track_grid(cls, track_df, hover_distance=None):
         if track_df.empty or not {"X", "Y", "Speed", "TraceLabel"}.issubset(track_df.columns):
             return cls._empty_track_grid("Track Map colored by Speed")
         labels = list(track_df["TraceLabel"].dropna().astype(str).unique())[:3]
         if not labels:
             return cls._empty_track_grid("Track Map colored by Speed")
         fig = make_subplots(rows=1, cols=len(labels), subplot_titles=labels)
+        hover_points = cls._nearest_track_points(track_df, labels, hover_distance)
         for col, label in enumerate(labels, start=1):
             df = track_df[track_df["TraceLabel"].astype(str) == label]
+            df, hover_cols = cls._track_hover_columns(df)
+            df["HoverText"] = df.apply(cls._track_hover_text, axis=1)
             fig.add_trace(
                 go.Scatter(
                     x=df["X"],
                     y=df["Y"],
                     mode="markers",
                     marker=dict(size=5, color=df["Speed"], coloraxis="coloraxis"),
-                    text=df.get("Distance"),
-                    hovertemplate=f"{label}<br>Speed %{{marker.color:.1f}} km/h<extra></extra>",
+                    customdata=df[hover_cols],
+                    hovertext=df["HoverText"],
+                    hovertemplate="%{hovertext}<extra></extra>",
                     name=label,
                     showlegend=False,
                 ),
                 row=1,
                 col=col,
             )
+            if label in hover_points:
+                point = hover_points[label]
+                text = cls._track_hover_text(point)
+                badge = cls._track_hover_badge(point)
+                fig.add_trace(
+                    go.Scatter(
+                        x=[point["X"]],
+                        y=[point["Y"]],
+                        mode="markers+text",
+                        marker=dict(
+                            size=14,
+                            color="rgba(255,255,255,0)",
+                            line=dict(color="#ffffff", width=3),
+                        ),
+                        text=[badge],
+                        textposition="top center",
+                        textfont=dict(color="#ffffff", size=10),
+                        hovertext=[text],
+                        hovertemplate="%{hovertext}<extra></extra>",
+                        name=f"{label} hover",
+                        showlegend=False,
+                    ),
+                    row=1,
+                    col=col,
+                )
             fig.update_xaxes(showticklabels=False, showgrid=False, zeroline=False, row=1, col=col)
             fig.update_yaxes(showticklabels=False, showgrid=False, zeroline=False, scaleanchor=f"x{col if col > 1 else ''}", row=1, col=col)
         fig.update_layout(
@@ -326,12 +444,15 @@ class DashboardCallbackRegistry:
             plot_bgcolor="#1a1a2e",
             font=dict(color="#e0e0e0"),
             coloraxis=dict(colorscale="Turbo", colorbar=dict(title="km/h")),
+            hovermode="closest",
+            hoverdistance=20,
+            uirevision="track-map",
             margin=dict(l=30, r=30, t=70, b=30),
         )
         return fig
 
     @classmethod
-    def _build_gear_track_grid(cls, track_df):
+    def _build_gear_track_grid(cls, track_df, hover_distance=None):
         if track_df.empty or not {"X", "Y", "nGear", "TraceLabel"}.issubset(track_df.columns):
             return cls._empty_track_grid("Gear Shifts on Track")
         df = track_df.copy()
@@ -343,8 +464,11 @@ class DashboardCallbackRegistry:
         if not labels:
             return cls._empty_track_grid("Gear Shifts on Track")
         fig = make_subplots(rows=1, cols=len(labels), subplot_titles=labels)
+        hover_points = cls._nearest_track_points(df, labels, hover_distance)
         for col, label in enumerate(labels, start=1):
             label_df = df[df["TraceLabel"].astype(str) == label]
+            label_df, hover_cols = cls._track_hover_columns(label_df)
+            label_df["HoverText"] = label_df.apply(cls._track_hover_text, axis=1)
             for gear in sorted(label_df["nGear"].dropna().unique()):
                 gear_int = int(gear)
                 gd = label_df[label_df["nGear"] == gear]
@@ -356,7 +480,34 @@ class DashboardCallbackRegistry:
                         marker=dict(color=F1ColorPalette.get_gear_color(gear_int), size=4),
                         name=f"Gear {gear_int}",
                         showlegend=(col == 1),
-                        hovertemplate=f"{label}<br>Gear {gear_int}<extra></extra>",
+                        customdata=gd[hover_cols],
+                        hovertext=gd["HoverText"],
+                        hovertemplate="%{hovertext}<extra></extra>",
+                    ),
+                    row=1,
+                    col=col,
+                )
+            if label in hover_points:
+                point = hover_points[label]
+                text = cls._track_hover_text(point)
+                badge = cls._track_hover_badge(point)
+                fig.add_trace(
+                    go.Scatter(
+                        x=[point["X"]],
+                        y=[point["Y"]],
+                        mode="markers+text",
+                        marker=dict(
+                            size=14,
+                            color="rgba(255,255,255,0)",
+                            line=dict(color="#ffffff", width=3),
+                        ),
+                        text=[badge],
+                        textposition="top center",
+                        textfont=dict(color="#ffffff", size=10),
+                        hovertext=[text],
+                        hovertemplate="%{hovertext}<extra></extra>",
+                        name=f"{label} hover",
+                        showlegend=False,
                     ),
                     row=1,
                     col=col,
@@ -370,6 +521,9 @@ class DashboardCallbackRegistry:
             plot_bgcolor="#1a1a2e",
             font=dict(color="#e0e0e0"),
             legend=dict(orientation="h", y=-0.08, x=0.5, xanchor="center"),
+            hovermode="closest",
+            hoverdistance=20,
+            uirevision="gear-map",
             margin=dict(l=30, r=30, t=70, b=60),
         )
         return fig
@@ -1051,6 +1205,7 @@ class DashboardCallbackRegistry:
             Output("inputs-graph", "figure"),
             Output("trackmap-graph", "figure"),
             Output("gear-map-graph", "figure"),
+            Output("track-telemetry-store", "data"),
             Input("driver-dropdown", "value"),
             Input("bundle-store", "data"),
             Input("results-table", "selected_rows"),
@@ -1152,4 +1307,28 @@ class DashboardCallbackRegistry:
                 *kpis,
                 charts[0],
                 *charts[1:],
+                cls._track_store_data(track_df),
+            )
+
+        @app.callback(
+            Output("trackmap-graph", "figure", allow_duplicate=True),
+            Output("gear-map-graph", "figure", allow_duplicate=True),
+            Input("trackmap-graph", "hoverData"),
+            Input("gear-map-graph", "hoverData"),
+            State("track-telemetry-store", "data"),
+            prevent_initial_call=True,
+        )
+        def sync_track_hover(track_hover, gear_hover, track_data):
+            track_df = cls._track_store_frame(track_data)
+            if track_df.empty:
+                return no_update, no_update
+
+            trigger = callback_context.triggered[0]["prop_id"].split(".")[0] if callback_context.triggered else ""
+            hover_data = gear_hover if trigger == "gear-map-graph" else track_hover
+            hover_distance = cls._track_hover_distance(hover_data)
+            if hover_distance is None or pd.isna(hover_distance):
+                return no_update, no_update
+            return (
+                cls._build_speed_track_grid(track_df, hover_distance),
+                cls._build_gear_track_grid(track_df, hover_distance),
             )
