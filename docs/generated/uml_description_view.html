@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>F1 Telemetry Dashboard UML</title>
+  <style>
+    body { margin: 0; background: #111; color: #eee; font-family: Arial, sans-serif; }
+    header { padding: 12px 16px; background: #1f1f1f; border-bottom: 1px solid #333; }
+    main { padding: 16px; overflow: auto; }
+    section { margin: 0 0 28px; }
+    h2 { margin: 0 0 4px; font-size: 18px; }
+    p { margin: 0 0 12px; color: #bbb; }
+    img { background: white; max-width: none; border: 1px solid #333; }
+  </style>
+</head>
+<body>
+  <header>F1 Telemetry Dashboard UML</header>
+  <main>
+    <section>
+      <h2>Architecture Overview</h2>
+      <p>Layer-level runtime flow and the meaning of each cross-layer dependency.</p>
+      <img src="uml_architecture_overview.png" alt="Architecture Overview">
+    </section>
+    <section>
+      <h2>Detailed UML Description</h2>
+      <p>Detailed class-style diagram with the main application, service, repository, FastF1, DTO, and visualization classes.</p>
+      <img src="uml_description.png" alt="Detailed UML Description">
+    </section>
+    <section>
+      <h2>Full Component Map</h2>
+      <p>All current application, service, repository, FastF1, DTO, and visualization components grouped by layer.</p>
+      <img src="uml_component_map.png" alt="Full Component Map">
+    </section>
+    <section>
+      <h2>DB-First Session Loading</h2>
+      <p>How SessionService, SQLite repositories, FastF1, and DTOs cooperate.</p>
+      <img src="uml_session_loading.png" alt="DB-First Session Loading">
+    </section>
+    <section>
+      <h2>Dash Lap Logic</h2>
+      <p>How driver selection, lap tables, telemetry plots, and track maps are connected.</p>
+      <img src="uml_dash_lap_logic.png" alt="Dash Lap Logic">
+    </section>
+  </main>
+</body>
+</html>

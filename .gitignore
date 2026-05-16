@@ -18,6 +18,24 @@ data/
 # FastF1 cache
 cache/
 
+# Documentation
+/class_overview.html
+/class_overview_files/
+docs/*.html
+docs/*_files/
+docs/.gitignore
+docs/generated/*
+!docs/generated/
+!docs/generated/*.html
+!docs/generated/*.png
+docs/generated/*_files/
+docs/generated/*.svg
+docs/generated/uml_description/
+
+# Quarto local state
+**/.quarto/
+**/*.quarto_ipynb
+
 # OS
 .DS_Store
 Thumbs.db

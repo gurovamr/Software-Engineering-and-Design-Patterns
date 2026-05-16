@@ -1,0 +1,606 @@
+@startuml uml_architecture_overview
+title F1 Telemetry Dashboard - Architecture Overview
+
+top to bottom direction
+
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 55
+skinparam ranksep 65
+skinparam shadowing false
+skinparam wrapWidth 160
+skinparam ArrowColor #444444
+skinparam packageTitleAlignment center
+
+rectangle "Dash Application Layer" as APP #E8F1FF {
+  component "DashApp\ncreates services and registers callbacks" as DashApp
+  component "DashboardCallbackRegistry\nlogin, session loading, lap selection" as Callbacks
+  component "DashLayout\nbuilds controls, tables, and graph slots" as Layout
+}
+
+rectangle "Visualization Layer" as VIS #FFF5D7 {
+  component "Plotly Chart Classes\nrace overview, driver analysis, track maps" as Charts
+  component "F1ColorPalette\nteam, tyre, and gear colors" as Colors
+}
+
+rectangle "Domain and Service Layer" as DOMAIN #EAF8EA {
+  component "AuthService" as AuthService
+  component "DriverService" as DriverService
+  component "SessionService\nDB-first session facade" as SessionService
+  component "TelemetryService" as TelemetryService
+  component "DataLoader" as DataLoader
+}
+
+database "Persistence Layer - SQLite\nusers, drivers, tracks, sync_state, sessions" as SQLITE #F7E8FF
+cloud "FastF1 Data Layer\nFastF1 API plus local cache/" as FASTF1 #FFE8E8
+component "DTOs\nTelemetryBundle, SessionRequest,\nSessionLoadResult, DriverTelemetryResult,\nEventCacheResult" as DTO #F2F2F2
+
+APP -down-> DOMAIN : 1
+DOMAIN -down-> SQLITE : 2
+DOMAIN -right-> FASTF1 : 3
+DOMAIN -right..> DTO : 4
+APP -right..> VIS : 5
+
+DashApp -down-> Layout
+DashApp -down-> Callbacks
+Charts -down..> Colors
+
+legend bottom
+|= Step |= Runtime meaning |
+| 1 | Dash callbacks use injected services for auth, driver suggestions, full-event loading, and session loading. |
+| 2 | SQLite is the first source for app data and cached FastF1 session data. |
+| 3 | FastF1 is called on demand, only when the selected session/event is missing locally. |
+| 4 | Services move structured results through DTOs instead of loose callback dictionaries. |
+| 5 | Dash callbacks delegate chart construction to visualization classes and color utilities. |
+endlegend
+
+@enduml
+
+@startuml uml_description
+title F1 Telemetry Dashboard - Detailed UML Description
+
+top to bottom direction
+
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 50
+skinparam ranksep 60
+skinparam shadowing false
+skinparam monochrome false
+skinparam wrapWidth 180
+skinparam packageTitleAlignment center
+skinparam ArrowColor #444444
+
+hide empty fields
+
+package "Dash Application Layer" as DETAIL_APP {
+  class DashApp <<entry point>> {
+    +app: Dash
+    +server: Flask
+    +create services
+    +register callbacks
+  }
+
+  class DashLayout <<UI factory module>> {
+    +create_layout(): Component
+    -_login_page(): Component
+    -_dashboard_page(): Component
+    -_results_table(): Component
+    -_lap_table_panel(index): Component
+  }
+
+  class DashboardCallbackRegistry <<controller facade>> {
+    -auth_service: AuthService
+    -driver_service: DriverService
+    -data_loader: DataLoader
+    -session_service: SessionService
+    -session_cache: dict
+    +register(app): void
+    --
+    -select up to 3 drivers
+    -build top-10 lap tables
+    -build telemetry charts
+    -build side-by-side track maps
+  }
+
+  class LapSelectionPanels <<Dash component group>> {
+    +results_table: DataTable
+    +lap_summary_graph: Graph
+    +per_driver_lap_tables: DataTable[3]
+    +track_lap_dropdowns: Dropdown[3]
+    --
+    +summary graph shows all selected-driver laps
+    +driver tables show top 10 fastest laps
+    +fastest lap is selected by default
+    +selected rows drive telemetry plots
+  }
+}
+
+package "Domain and Service Layer" as DETAIL_DOMAIN {
+  class AuthService <<service>> {
+    -repo: UserRepository
+    +register(...): tuple
+    +login(...): tuple
+    +update_favorite_driver(...): void
+  }
+
+  class DriverService <<service>> {
+    -repo: DriverRepository
+    -user_repo: UserRepository
+    +get_all_driver_codes(): list[str]
+    +save_driver_codes(...): void
+    +refresh_known_driver_codes(...): list[str]
+    +get_popular_drivers(...): list[str]
+  }
+
+  class SessionService <<DB-first service facade>> {
+    -repo: SessionRepository
+    -cache_dir: Path
+    +load_session_overview(...): SessionLoadResult
+    +load_driver_telemetry(...): DriverTelemetryResult
+    +cache_full_event(...): EventCacheResult
+    --
+    +read SQLite first
+    +fetch FastF1 only when missing
+    +merge telemetry into SQLite
+  }
+
+  class TelemetryService <<service>> {
+    +get_available_drivers(): list[str]
+    +get_driver_laps(...): list[int]
+    +get_multiple_laps_telemetry(...): DataFrame
+    +get_lap_summary(...): DataFrame
+  }
+
+  class PitStopExtractor <<utility service>> {
+    {static} +extract(laps_df): list[dict]
+  }
+
+  class DataLoader <<singleton>> {
+    +begin_sync(year): void
+    +get_sync_status(): dict
+  }
+}
+
+package "Persistence Layer - SQLite" as DETAIL_DB {
+  abstract class BaseRepository <<repository base>> {
+    -db_path: Path
+    #_connect(): Iterator[Connection]
+  }
+
+  class UserRepository <<repository>> {
+    +ensure_schema(): void
+    +find_by_name(...): dict
+    +create(...): int
+    +update_favorite_driver(...): void
+  }
+
+  class DriverRepository <<repository>> {
+    +ensure_schema(): void
+    +upsert_driver_codes(...): void
+    +get_all_driver_codes(): list[str]
+  }
+
+  class TrackRepository <<repository>> {
+    +ensure_schema(): void
+    +get_events(year): list[str]
+    +upsert_event_names(...): void
+  }
+
+  class SessionRepository <<local session store>> {
+    +ensure_schema(): void
+    +load_session(...): TelemetryBundle
+    +save_session(...): void
+    -_merge_telemetry(...): DataFrame
+    --
+    sessions:
+    year, event, session_code
+    session_info
+    results_json, laps_json
+    telemetry_json
+    --
+    migration adds missing session_info
+  }
+
+  class SyncRepository <<repository>> {
+    +ensure_schema(): void
+    +get_state(year): dict
+    +save_state(...): void
+  }
+}
+
+package "FastF1 Data Layer" as DETAIL_F1 {
+  class FastF1CacheHelper <<module function>> {
+    {static} +_enable_fastf1_cache(cache_dir): Path
+    --
+    +create cache directory
+    +enable FastF1 cache
+  }
+
+  abstract class TelemetrySource <<adapter interface>> {
+    +load_bundle(request): TelemetryBundle
+  }
+
+  class FastF1Source <<adapter>> {
+    -cache_dir: Path
+    +load_bundle(request): TelemetryBundle
+    -_normalize_results(...): DataFrame
+    -_normalize_laps(...): DataFrame
+    -_build_telemetry_dataframe(...): DataFrame
+  }
+
+  class F1SessionBundleCache <<process cache facade>> {
+    -cache: dict
+    +load_quick(...): TelemetryBundle
+    +load_driver_telemetry(...): DataFrame
+    +load_full(...): TelemetryBundle
+  }
+
+  class F1ScheduleService <<schedule facade>> {
+    -event_cache: dict
+    +get_events(year): list[str]
+    +get_events_with_laps(...): list[str]
+  }
+}
+
+package "Data Transfer Objects" as DETAIL_DTO {
+  class TelemetryBundle <<DTO>> {
+    +session_info: dict
+    +results: DataFrame
+    +laps: DataFrame
+    +telemetry: DataFrame
+  }
+
+  class SessionRequest <<value object>> {
+    +year: int
+    +event: str | int
+    +session_code: str
+    +drivers: list[str]
+  }
+
+  class SessionLoadResult <<DTO>>
+  class DriverTelemetryResult <<DTO>>
+  class EventCacheResult <<DTO>>
+}
+
+package "Visualization Layer" as DETAIL_VIS {
+  abstract class BaseChart <<template method>> {
+    +render(): Figure
+    #_build(): Figure
+    {static} +empty_figure(...): Figure
+  }
+
+  class TelemetryCharts <<chart family>> {
+    +LapSummaryChart
+    +SpeedChart
+    +GearChart
+    +ThrottleBrakeChart
+    +TrackMapChart
+    +GearMapChart
+    +PositionChart
+    +TyreStrategyChart
+    +TeamPaceChart
+    +LapTimesDistributionChart
+  }
+
+  class F1ColorPalette <<utility>> {
+    {static} +get_team_color(...): str
+    {static} +get_compound_color(...): str
+    {static} +get_gear_color(...): str
+  }
+}
+
+DashApp --> DashLayout
+DashApp --> DashboardCallbackRegistry
+DashLayout *-- LapSelectionPanels
+DashboardCallbackRegistry --> LapSelectionPanels
+
+DashboardCallbackRegistry --> AuthService
+DashboardCallbackRegistry --> DriverService
+DashboardCallbackRegistry --> DataLoader
+DashboardCallbackRegistry --> SessionService
+DashboardCallbackRegistry ..> TelemetryService
+DashboardCallbackRegistry ..> PitStopExtractor
+DashboardCallbackRegistry ..> TelemetryCharts
+DashboardCallbackRegistry ..> F1ColorPalette
+
+AuthService *-- UserRepository
+DriverService *-- DriverRepository
+DriverService --> UserRepository
+SessionService *-- SessionRepository
+SessionService ..> F1SessionBundleCache
+SessionService ..> SessionRequest
+SessionService ..> SessionLoadResult
+SessionService ..> DriverTelemetryResult
+SessionService ..> EventCacheResult
+DataLoader --> SyncRepository
+DataLoader ..> F1ScheduleService
+
+BaseRepository <|-- UserRepository
+BaseRepository <|-- DriverRepository
+BaseRepository <|-- TrackRepository
+BaseRepository <|-- SessionRepository
+BaseRepository <|-- SyncRepository
+
+SessionRepository ..> TelemetryBundle
+F1SessionBundleCache *-- FastF1Source
+F1SessionBundleCache ..> FastF1CacheHelper
+F1ScheduleService ..> FastF1CacheHelper
+FastF1Source --|> TelemetrySource
+FastF1Source ..> FastF1CacheHelper
+FastF1Source ..> TelemetryBundle
+
+TelemetryCharts --|> BaseChart
+TelemetryCharts ..> F1ColorPalette
+
+legend bottom
+|= Arrow |= Meaning |
+| solid arrow | Main runtime flow / direct collaboration |
+| dashed arrow | Secondary dependency, helper, or generated data |
+| black diamond | Composition / owned object |
+| hollow triangle | Inheritance or interface implementation |
+| Dash -> Domain | Callbacks use injected services for auth, drivers, sync, sessions, metrics, and pit-stop extraction |
+| Domain -> SQLite | Services own repositories for user, driver, track, sync, and local session data |
+| Domain -> FastF1 | SessionService calls FastF1 only when SQLite is missing overview or driver telemetry |
+| Dash -> Visualization | Callbacks build Plotly figures through chart classes and F1ColorPalette |
+| Lap analysis | Finishing order selects drivers; top-10 lap tables select telemetry laps; track dropdowns select map laps |
+| Generated outputs | HTML/PNG renders live in docs/generated/ |
+endlegend
+
+@enduml
+
+@startuml uml_component_map
+title F1 Telemetry Dashboard - Full Component Map
+
+top to bottom direction
+
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 45
+skinparam ranksep 55
+skinparam shadowing false
+skinparam wrapWidth 170
+skinparam ArrowColor #444444
+skinparam packageTitleAlignment center
+
+rectangle "Dash Application Layer" as APP #E8F1FF {
+  component "DashApp\napp_dash.py" as DashApp
+  component "DashLayout\ndash_layout.py" as DashLayout
+  component "DashboardCallbackRegistry\ndash_callbacks.py" as CallbackRegistry
+  component "LapSelectionPanels\nresults table, lap tables,\ntrack lap dropdowns" as LapSelectionPanels
+}
+
+rectangle "Domain and Service Layer" as DOMAIN #EAF8EA {
+  component "AuthService" as AuthService
+  component "DriverService" as DriverService
+  component "SessionService\nDB-first session facade" as SessionService
+  component "TelemetryService" as TelemetryService
+  component "PitStopExtractor" as PitStopExtractor
+  component "DataLoader\nbackground sync" as DataLoader
+}
+
+rectangle "Persistence Layer - SQLite" as DB #F7E8FF {
+  component "BaseRepository" as BaseRepository
+  component "UserRepository\nusers, logins,\nfavorite_driver" as UserRepository
+  component "DriverRepository\ndriver codes" as DriverRepository
+  component "TrackRepository\nevent names" as TrackRepository
+  component "SessionRepository\nsession_info, results_json,\nlaps_json, telemetry_json" as SessionRepository
+  component "SyncRepository\nsync_state" as SyncRepository
+}
+
+rectangle "FastF1 Data Layer" as F1 #FFE8E8 {
+  component "TelemetrySource\nadapter interface" as TelemetrySource
+  component "FastF1Source\nnormalizes FastF1 data" as FastF1Source
+  component "F1SessionBundleCache\nprocess cache facade" as F1SessionBundleCache
+  component "F1ScheduleService\nschedule facade" as F1ScheduleService
+  component "_enable_fastf1_cache()\ncreates cache/ before FastF1 calls" as FastF1CacheHelper
+}
+
+rectangle "Data Transfer Objects" as DTO #F2F2F2 {
+  component "SessionRequest" as SessionRequest
+  component "TelemetryBundle" as TelemetryBundle
+  component "SessionLoadResult" as SessionLoadResult
+  component "DriverTelemetryResult" as DriverTelemetryResult
+  component "EventCacheResult" as EventCacheResult
+}
+
+rectangle "Visualization Layer" as VIS #FFF5D7 {
+  component "BaseChart\nTemplate Method" as BaseChart
+  component "Chart subclasses\nSpeedChart, GearChart,\nLapSummaryChart,\nThrottleBrakeChart,\nTrackMapChart, PositionChart,\nTyreStrategyChart, TeamPaceChart,\nLapTimesDistributionChart" as ChartSubclasses
+  component "F1ColorPalette\nteam, tyre, gear colors" as F1ColorPalette
+  component "DarkThemeConfig" as DarkThemeConfig
+}
+
+DashApp -down-> DashLayout
+DashApp -down-> CallbackRegistry
+DashLayout *-down- LapSelectionPanels
+CallbackRegistry -down-> LapSelectionPanels
+
+BaseRepository -down-> UserRepository
+BaseRepository -down-> DriverRepository
+BaseRepository -down-> TrackRepository
+BaseRepository -down-> SessionRepository
+BaseRepository -down-> SyncRepository
+
+F1SessionBundleCache -down-> FastF1Source
+FastF1Source -down-> TelemetrySource
+F1SessionBundleCache ..> FastF1CacheHelper
+FastF1Source ..> FastF1CacheHelper
+F1ScheduleService ..> FastF1CacheHelper
+
+ChartSubclasses -down-> BaseChart
+ChartSubclasses ..> F1ColorPalette
+BaseChart ..> DarkThemeConfig
+
+legend bottom
+|= Reading note |
+| This diagram lists the current components grouped by layer. |
+| Cross-layer runtime behavior is intentionally documented in the overview and sequence diagrams to avoid long crossing arrows. |
+| Method-level detail is documented in class_overview.md and generated/class_overview.html. |
+endlegend
+
+@enduml
+
+@startuml uml_session_loading
+title F1 Telemetry Dashboard - DB-First Session Loading
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam shadowing false
+skinparam wrapWidth 180
+skinparam ArrowColor #444444
+skinparam ParticipantPadding 25
+skinparam BoxPadding 12
+
+box "Dash Application Layer" #E8F1FF
+participant "DashboardCallbackRegistry\nDash callbacks" as Dash
+end box
+
+box "Domain and Service Layer" #EAF8EA
+participant "SessionService\nDB-first facade" as Service
+end box
+
+box "Persistence Layer - SQLite" #F7E8FF
+database "SessionRepository\nsessions table" as Repo
+end box
+
+box "FastF1 Data Layer" #FFE8E8
+participant "F1SessionBundleCache\nprocess cache" as ProcessCache
+participant "FastF1Source\nadapter" as Source
+collections "cache/\nFastF1 HTTP cache" as HttpCache
+participant "FastF1 API" as API
+end box
+
+Dash -> Service : 1. load selected session or full event
+activate Service
+Service -> Repo : 2. load_session(year, event, session_code)
+Repo --> Service : existing TelemetryBundle or None
+
+alt session already stored locally
+  Service -> Service : build SessionLoadResult DTO
+else session missing locally
+  Service -> Service : build SessionRequest DTO
+  Service -> ProcessCache : 3. load_quick(), load_full(), or load_driver_telemetry()
+  activate ProcessCache
+  ProcessCache -> Source : load_bundle(request)
+  activate Source
+  Source -> HttpCache : _enable_fastf1_cache(cache_dir)
+  Source -> API : fetch selected FastF1 session data
+  API --> Source : results, laps, telemetry
+  Source --> ProcessCache : normalized TelemetryBundle
+  deactivate Source
+  ProcessCache --> Service : TelemetryBundle
+  deactivate ProcessCache
+  Service -> Repo : 4. save_session(bundle)
+  Service -> Service : build SessionLoadResult DTO
+end
+
+Dash -> Service : 5. load selected-driver telemetry
+Service -> Repo : load_session(..., selected drivers/laps)
+Repo --> Service : merged telemetry for selected drivers
+Service -> Service : build DriverTelemetryResult DTO
+Service --> Dash : 6. callback state, figures, and user feedback
+deactivate Service
+
+note right of Service
+DTOs used by callbacks:
+SessionRequest
+TelemetryBundle
+SessionLoadResult
+DriverTelemetryResult
+EventCacheResult
+end note
+
+note over Repo
+sessions columns:
+year, event, session_code
+session_info
+results_json, laps_json, telemetry_json
+
+ensure_schema() migrates older local DBs by adding session_info.
+end note
+
+legend bottom
+|= Step |= Meaning |
+| 1 | The user action reaches SessionService through Dash callbacks. |
+| 2 | SQLite is checked before any FastF1 request. |
+| 3 | FastF1 is contacted only when local data is missing or the user explicitly loads a full event. |
+| 4 | Fresh FastF1 data is persisted so later loads can stay local. |
+| 5 | Telemetry plots read the selected drivers and laps from the cached SQLite bundle. |
+| 6 | The callback updates visible status text, tables, and charts. |
+endlegend
+
+@enduml
+
+@startuml uml_dash_lap_logic
+title F1 Telemetry Dashboard - Current Dash Lap Logic
+
+top to bottom direction
+
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 50
+skinparam ranksep 60
+skinparam shadowing false
+skinparam wrapWidth 170
+skinparam ArrowColor #444444
+skinparam packageTitleAlignment center
+
+rectangle "Driver Selection" as DRIVER #E8F1FF {
+  component "Finishing Order table\nselect up to 3 drivers\nfavorite driver selected by default" as ResultsTable
+  component "Selected drivers status\nprevents more than 3 selections" as SelectedStatus
+}
+
+rectangle "Lap Overview" as LAPS #EAF8EA {
+  component "Lap time comparison plot\nshows all laps for selected drivers" as LapSummary
+  component "Per-driver lap tables\none table per selected driver\n10 fastest laps by default" as LapTables
+}
+
+rectangle "Telemetry Analysis" as TELEMETRY #FFF5D7 {
+  component "Selected lap rows\nchoose exact laps per driver" as SelectedRows
+  component "Speed over distance" as SpeedChart
+  component "Gear over distance\naxis starts at gear 1" as GearChart
+  component "Throttle and brake over distance" as InputsChart
+}
+
+rectangle "Track Maps" as MAPS #FFE8E8 {
+  component "Track lap dropdowns\none dropdown per selected driver\nfastest lap by default" as TrackDropdowns
+  component "Speed-colored track maps\none column per selected driver" as TrackMap
+  component "Gear-shift track maps\none column per selected driver" as GearMap
+}
+
+rectangle "Race Overview" as RACE #F7E8FF {
+  component "Race timeline / position chart" as Timeline
+  component "Key events\ncolored with team palette when available" as KeyEvents
+  component "Tyre strategy, team pace,\nlap-time distribution" as RaceCharts
+}
+
+ResultsTable -down-> LapSummary : selected drivers
+ResultsTable -down-> LapTables : selected drivers
+LapTables -down-> SelectedRows : selected lap rows
+SelectedRows -down-> SpeedChart
+SelectedRows -down-> GearChart
+SelectedRows -down-> InputsChart
+
+ResultsTable -right-> TrackDropdowns : selected drivers
+TrackDropdowns -down-> TrackMap : selected map lap
+TrackDropdowns -down-> GearMap : selected map lap
+
+ResultsTable -right..> SelectedStatus
+Timeline -right..> KeyEvents
+Timeline -down..> RaceCharts
+
+legend bottom
+|= Area |= User-facing behavior |
+| Driver selection | The finishing order table is the single driver-selection control for analysis. |
+| Lap overview | The lap plot shows every lap; the per-driver tables show the fastest 10 by default. |
+| Telemetry analysis | Telemetry plots use the exact lap rows selected in the per-driver tables. |
+| Track maps | Track maps use separate per-driver dropdowns because overlaying map laps was unreadable. |
+| Race overview | Whole-race charts stay separate from selected-driver analysis. |
+endlegend
+
+@enduml
