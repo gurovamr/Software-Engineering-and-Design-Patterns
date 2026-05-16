@@ -15,6 +15,9 @@ dependencies:
   - streamlit
   - plotly
   - dash
+  - pytest>=7.4.0
+  - pytest-cov>=4.1.0
+  - flake8>=6.1.0
 
   - pip:
       - fastf1>=3.8,<4
