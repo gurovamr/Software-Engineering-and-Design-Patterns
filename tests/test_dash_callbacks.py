@@ -22,21 +22,23 @@ def _make_registry():
 class TestRegistryInit:
     def test_init_creates_empty_cache(self):
         reg = _make_registry()
-        cache = getattr(reg, "sessioncache", None)
+        # registry uses a private dict _session_cache
+        cache = getattr(reg, "_session_cache", None)
         assert isinstance(cache, dict)
+        assert cache == {}
 
 
 class TestCleanTelemetry:
     def test_clean_telemetry_empty_returns_empty(self):
         reg = _make_registry()
         df = pd.DataFrame()
-        out = reg.cleantelemetrydataframe(df)
+        out = reg._clean_telemetry_dataframe(df)
         assert out.empty
 
     def test_clean_telemetry_casts_driver_and_lapnumber(self):
         reg = _make_registry()
         df = pd.DataFrame({"Driver": [1], "LapNumber": ["1"], "Distance": [0.0]})
-        out = reg.cleantelemetrydataframe(df)
+        out = reg._clean_telemetry_dataframe(df)
         assert not out.empty
         assert out["Driver"].dtype == object
         assert pd.api.types.is_integer_dtype(out["LapNumber"])
@@ -48,12 +50,12 @@ class TestSessionCache:
         bundle = Mock()
         bundle.telemetry = pd.DataFrame({"Driver": ["VER"], "LapNumber": [1]})
 
-        key = reg.storesessionbundle(2024, "Monaco", "R", bundle)
-        cache = getattr(reg, "sessioncache", {})
+        key = reg._store_session_bundle(2024, "Monaco", "R", bundle)
+        cache = getattr(reg, "_session_cache", {})
         assert key in cache
 
-        data = {"cachekey": key}
-        got_bundle, tel = reg.retrievecachedbundle(data)
+        data = {"cache_key": key}
+        got_bundle, tel = reg._retrieve_cached_bundle(data)
         assert got_bundle is bundle
         assert isinstance(tel, pd.DataFrame)
 
@@ -61,8 +63,9 @@ class TestSessionCache:
 class TestEmptyDashboard:
     def test_empty_dashboard_tuple_shape(self):
         reg = _make_registry()
-        result = reg.emptydashboard()
+        result = reg._empty_dashboard()
         assert isinstance(result, tuple)
+        # in your code this tuple has 10 elements (4 KPI strings + 6 figures)
         assert len(result) == 10
         for fig in result[4:]:
             assert isinstance(fig, go.Figure)
@@ -81,4 +84,5 @@ class TestRegister:
 
         mock_app.callback = Mock(side_effect=fake_callback)
         reg.register(mock_app)
+        # We only assert that some callbacks were registered
         assert mock_app.callback.call_count > 0
