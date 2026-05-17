@@ -55,6 +55,119 @@
     background-color: #1a1a2e !important;
 }
 
+@keyframes telemetry-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes pulse-glow {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.7), 0 0 0 2px rgba(251, 191, 36, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 0 10px rgba(251, 191, 36, 0), 0 0 0 2px rgba(251, 191, 36, 0.5);
+    }
+}
+
+.telemetry-loading-banner {
+    align-items: center;
+    animation: pulse-glow 2s ease-in-out infinite;
+    background: linear-gradient(135deg, #2a2410 0%, #3a3220 100%);
+    border: 2px solid #fbbf24;
+    border-radius: 8px;
+    color: #fbbf24;
+    font-size: 0.95em;
+    font-weight: 700;
+    gap: 12px;
+    margin-bottom: 14px;
+    min-height: 42px;
+    padding: 10px 16px;
+    position: sticky;
+    top: 8px;
+    z-index: 10;
+}
+
+.telemetry-loading-banner[style*="flex"] {
+    display: flex;
+}
+
+.telemetry-spinner {
+    animation: telemetry-spin 0.6s linear infinite;
+    border: 3px solid rgba(251, 191, 36, 0.2);
+    border-radius: 50%;
+    border-top: 3px solid #fbbf24;
+    border-right: 3px solid #fbbf24;
+    display: inline-block;
+    flex: 0 0 auto;
+    height: 20px;
+    width: 20px;
+}
+
+.lap-table-controls {
+    display: block;
+    margin: 0 0 12px;
+    padding: 0;
+    width: 100%;
+}
+
+.lap-selection-status {
+    color: #ffffff !important;
+    display: block;
+}
+
+.show-all-laps-toggle {
+    color: #ffffff !important;
+    font-size: 0.85em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: flex-start;
+    margin: 0;
+    width: 100%;
+}
+
+.show-all-laps-toggle label {
+    color: #ffffff !important;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    margin: 0;
+    padding: 0;
+}
+
+.show-all-laps-toggle input[type="checkbox"] {
+    accent-color: #e10600;
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+}
+
+.show-all-laps-toggle input[type="checkbox"]:hover {
+    filter: brightness(1.2);
+}
+
+.track-map-graphs-grid,
+.track-map-loading,
+.track-map-graph,
+#trackmap-graph,
+#gear-map-graph {
+    box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    width: 100%;
+}
+
+.track-map-graph .js-plotly-plot,
+.track-map-graph .plot-container,
+.track-map-graph .svg-container {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    width: 100% !important;
+}
+
 @media (max-width: 1100px) {
     .race-overview-grid,
     .race-chart-grid,

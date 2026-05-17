@@ -1,4 +1,5 @@
 from dash import Dash
+from pathlib import Path
 from src.dash_layout import create_layout
 from src.dash_callbacks import DashboardCallbackRegistry
 from src.auth_service import AuthService, DriverService
@@ -6,6 +7,7 @@ from src.preload_service import DataLoader
 from src.session_service import SessionService
 
 DB_PATH = "data/f1.sqlite"
+ASSETS_FOLDER = str(Path(__file__).resolve().parent / "assets")
 
 # ── Dependency Injection setup ─────────────────────────────────────────────
 # Each service is instantiated once here and injected where needed.
@@ -19,6 +21,7 @@ app = Dash(
     __name__,
     suppress_callback_exceptions=True,
     update_title="Loading...",
+    assets_folder=ASSETS_FOLDER,
 )
 server = app.server
 

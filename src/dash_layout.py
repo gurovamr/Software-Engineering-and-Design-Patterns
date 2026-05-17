@@ -262,6 +262,7 @@ def _sidebar():
             dcc.Store(id="bundle-store"),
             dcc.Store(id="results-store"),
             dcc.Store(id="track-telemetry-store"),
+            dcc.Store(id="track-hover-sync-store"),
         ],
     )
 
@@ -324,8 +325,9 @@ def _lap_table_panel(index):
                 data=[],
                 row_selectable="multi",
                 selected_rows=[],
-                page_size=10,
-                style_table={"overflowX": "auto"},
+                page_action="none",
+                fixed_rows={"headers": True},
+                style_table={"height": "310px", "overflowY": "auto", "overflowX": "auto"},
                 style_header={
                     "backgroundColor": _CARD_BG,
                     "color": _TEXT,
@@ -502,44 +504,74 @@ def _dashboard_page():
                                 style={"color": _MUTED, "fontSize": "0.85em", "margin": "-10px 0 14px"},
                             ),
                             html.Div(
+                                id="driver-analysis-card",
                                 style={**_CARD_STYLE, "marginBottom": "20px"},
                                 children=[
                                     html.Div(
-                                        "Lap Times for Selected Drivers",
-                                        style={"fontWeight": "bold", "marginBottom": "8px"},
-                                    ),
-                                    dcc.Loading(
-                                        id="loading-lap-summary",
-                                        type="circle",
-                                        children=dcc.Graph(
-                                            id="lap-summary-graph",
-                                            figure=empty_fig("Lap Times for Selected Drivers"),
-                                        ),
+                                        id="telemetry-loading-banner",
+                                        className="telemetry-loading-banner",
+                                        style={"display": "none"},
+                                        children=[
+                                            html.Span(className="telemetry-spinner"),
+                                            html.Span("Loading telemetry for selected drivers..."),
+                                        ],
                                     ),
                                     html.Div(
-                                        id="lap-selection-status",
-                                        style={"color": _MUTED, "fontSize": "0.8em", "marginBottom": "10px"},
+                                        style={
+                                            "display": "flex",
+                                            "alignItems": "center",
+                                            "justifyContent": "space-between",
+                                            "gap": "12px",
+                                            "marginBottom": "8px",
+                                            "flexWrap": "wrap",
+                                        },
+                                        children=[
+                                            html.Div("Lap Times for Selected Drivers", style={"fontWeight": "bold"}),
+                                        ],
+                                    ),
+                                    dcc.Graph(
+                                        id="lap-summary-graph",
+                                        figure=empty_fig("Lap Times for Selected Drivers"),
+                                        style={"marginBottom": "0"},
+                                    ),
+                                    html.Div(
+                                        className="lap-table-controls",
+                                        children=[
+                                            html.Div(
+                                                id="lap-selection-status",
+                                                className="lap-selection-status",
+                                                style={"color": _TEXT, "fontSize": "0.85em", "marginBottom": "6px"},
+                                            ),
+                                            dcc.Checklist(
+                                                id="show-all-laps-toggle",
+                                                options=[{"label": "Show all laps", "value": "all"}],
+                                                value=[],
+                                                className="show-all-laps-toggle",
+                                                labelStyle={
+                                                    "display": "flex",
+                                                    "alignItems": "center",
+                                                    "gap": "6px",
+                                                    "cursor": "pointer",
+                                                },
+                                            ),
+                                        ],
+                                    ),
+                                    html.Div(
+                                        className="lap-table-grid",
+                                        style={
+                                            "display": "grid",
+                                            "gridTemplateColumns": "repeat(3, minmax(220px, 1fr))",
+                                            "gap": "14px",
+                                        },
+                                        children=[
+                                            _lap_table_panel(1),
+                                            _lap_table_panel(2),
+                                            _lap_table_panel(3),
+                                        ],
                                     ),
                                     html.Div(
                                         id="telemetry-load-status",
                                         style={"color": _MUTED, "fontSize": "0.8em", "marginBottom": "10px"},
-                                    ),
-                                    dcc.Loading(
-                                        id="loading-lap-tables",
-                                        type="circle",
-                                        children=html.Div(
-                                            className="lap-table-grid",
-                                            style={
-                                                "display": "grid",
-                                                "gridTemplateColumns": "repeat(3, minmax(220px, 1fr))",
-                                                "gap": "14px",
-                                            },
-                                            children=[
-                                                _lap_table_panel(1),
-                                                _lap_table_panel(2),
-                                                _lap_table_panel(3),
-                                            ],
-                                        ),
                                     ),
                                 ],
                             ),
@@ -606,27 +638,46 @@ def _dashboard_page():
                                 ],
                             ),
                             html.Div(
+                                className="track-map-graphs-grid",
                                 style={
                                     "display": "grid",
                                     "gridTemplateColumns": "1fr",
                                     "gap": "16px",
                                     "marginBottom": "20px",
+                                    "minWidth": "0",
+                                    "overflow": "hidden",
                                 },
                                 children=[
                                     dcc.Loading(
                                         id="loading-trackmap-graph",
+                                        className="track-map-loading",
+                                        style={"minWidth": "0", "width": "100%", "overflow": "hidden"},
                                         type="circle",
                                         children=dcc.Graph(
                                             id="trackmap-graph",
                                             figure=empty_fig("Track Map"),
+                                            hoverData=None,
+                                            clear_on_unhover=True,
+                                            config={"responsive": True},
+                                            responsive=True,
+                                            className="track-map-graph",
+                                            style={"cursor": "crosshair", "width": "100%", "minWidth": "0"},
                                         ),
                                     ),
                                     dcc.Loading(
                                         id="loading-gear-map-graph",
+                                        className="track-map-loading",
+                                        style={"minWidth": "0", "width": "100%", "overflow": "hidden"},
                                         type="circle",
                                         children=dcc.Graph(
                                             id="gear-map-graph",
                                             figure=empty_fig("Gear Shifts on Track"),
+                                            hoverData=None,
+                                            clear_on_unhover=True,
+                                            config={"responsive": True},
+                                            responsive=True,
+                                            className="track-map-graph",
+                                            style={"cursor": "crosshair", "width": "100%", "minWidth": "0"},
                                         ),
                                     ),
                                 ],

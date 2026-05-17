@@ -1,5 +1,5 @@
 import pandas as pd
-from dash import Input, Output, State, no_update, callback_context, html
+from dash import ClientsideFunction, Input, Output, State, no_update, callback_context, html
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from pathlib import Path
@@ -87,6 +87,7 @@ class DashboardCallbackRegistry:
             cls._empty_fig("Track Map"),
             cls._empty_fig("Gear Shifts on Track"),
             None,
+            {"display": "none"},
         )
 
     def _store_session_bundle(self, year, event, session_code, bundle):
@@ -222,7 +223,9 @@ class DashboardCallbackRegistry:
             return pd.DataFrame()
         table = cls._format_lap_selection_table(summary_df)
         table = table[table["Driver"].astype(str) == str(driver)].copy()
-        return table.head(limit).reset_index(drop=True)
+        if limit is not None:
+            table = table.head(limit)
+        return table.reset_index(drop=True)
 
     @staticmethod
     def _lap_table_columns(table):
@@ -277,16 +280,26 @@ class DashboardCallbackRegistry:
         frames = []
         for idx, driver in enumerate(drivers[:3]):
             lap = lap_values[idx] if idx < len(lap_values) else None
-            if lap is None:
-                default = get_fastest_laps_for_driver(telemetry_df, driver, top_n=1)
-                lap = default[0] if default else None
-            if lap is None:
+            candidate_laps = []
+            lap_number = pd.to_numeric(lap, errors="coerce")
+            if pd.notna(lap_number):
+                candidate_laps.append(int(lap_number))
+            default = get_fastest_laps_for_driver(telemetry_df, driver, top_n=1)
+            if default and int(default[0]) not in candidate_laps:
+                candidate_laps.append(int(default[0]))
+            if not candidate_laps:
                 continue
-            df = get_multiple_laps_telemetry(telemetry_df, driver, [int(lap)])
+            df = pd.DataFrame()
+            selected_lap = None
+            for candidate_lap in candidate_laps:
+                df = get_multiple_laps_telemetry(telemetry_df, driver, [candidate_lap])
+                if not df.empty:
+                    selected_lap = candidate_lap
+                    break
             if df.empty:
                 continue
             df = df.copy()
-            df["TraceLabel"] = f"{driver} L{int(lap)}"
+            df["TraceLabel"] = f"{driver} L{selected_lap}"
             frames.append(df)
         return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
@@ -353,11 +366,25 @@ class DashboardCallbackRegistry:
 
     @staticmethod
     def _track_hover_badge(row):
+        distance = pd.to_numeric(row.get("Distance"), errors="coerce")
         speed = pd.to_numeric(row.get("Speed"), errors="coerce")
+        throttle = pd.to_numeric(row.get("Throttle"), errors="coerce")
+        brake = row.get("Brake", "")
         gear = pd.to_numeric(row.get("nGear"), errors="coerce")
         parts = [str(row.get("TraceLabel", ""))]
+        if pd.notna(distance):
+            parts.append(f"{distance:.0f} m")
         if pd.notna(speed):
-            parts.append(f"{speed:.0f} km/h")
+            parts.append(f"S {speed:.0f} km/h")
+        if pd.notna(throttle):
+            parts.append(f"T {throttle:.0f}%")
+        brake_text = str(brake).strip().lower()
+        if brake_text in {"true", "1", "1.0"}:
+            parts.append("Brake")
+        else:
+            brake_value = pd.to_numeric(brake, errors="coerce")
+            if pd.notna(brake_value) and float(brake_value) > 0:
+                parts.append(f"B {brake_value:.0f}")
         if pd.notna(gear):
             parts.append(f"G{int(gear)}")
         return "<br>".join(parts)
@@ -389,6 +416,7 @@ class DashboardCallbackRegistry:
         labels = list(track_df["TraceLabel"].dropna().astype(str).unique())[:3]
         if not labels:
             return cls._empty_track_grid("Track Map colored by Speed")
+        revision = "track-map|" + "|".join(labels)
         fig = make_subplots(rows=1, cols=len(labels), subplot_titles=labels)
         hover_points = cls._nearest_track_points(track_df, labels, hover_distance)
         for col, label in enumerate(labels, start=1):
@@ -403,7 +431,8 @@ class DashboardCallbackRegistry:
                     marker=dict(size=5, color=df["Speed"], coloraxis="coloraxis"),
                     customdata=df[hover_cols],
                     hovertext=df["HoverText"],
-                    hovertemplate="%{hovertext}<extra></extra>",
+                    hoverinfo="none",
+                    hovertemplate=None,
                     name=label,
                     showlegend=False,
                 ),
@@ -428,7 +457,8 @@ class DashboardCallbackRegistry:
                         textposition="top center",
                         textfont=dict(color="#ffffff", size=10),
                         hovertext=[text],
-                        hovertemplate="%{hovertext}<extra></extra>",
+                        hoverinfo="skip",
+                        hovertemplate=None,
                         name=f"{label} hover",
                         showlegend=False,
                     ),
@@ -446,8 +476,10 @@ class DashboardCallbackRegistry:
             coloraxis=dict(colorscale="Turbo", colorbar=dict(title="km/h")),
             hovermode="closest",
             hoverdistance=20,
-            uirevision="track-map",
-            margin=dict(l=30, r=30, t=70, b=30),
+            uirevision=revision,
+            datarevision=revision,
+            autosize=True,
+            margin=dict(l=15, r=15, t=60, b=25),
         )
         return fig
 
@@ -463,6 +495,7 @@ class DashboardCallbackRegistry:
         labels = list(df["TraceLabel"].dropna().astype(str).unique())[:3]
         if not labels:
             return cls._empty_track_grid("Gear Shifts on Track")
+        revision = "gear-map|" + "|".join(labels)
         fig = make_subplots(rows=1, cols=len(labels), subplot_titles=labels)
         hover_points = cls._nearest_track_points(df, labels, hover_distance)
         for col, label in enumerate(labels, start=1):
@@ -482,7 +515,8 @@ class DashboardCallbackRegistry:
                         showlegend=(col == 1),
                         customdata=gd[hover_cols],
                         hovertext=gd["HoverText"],
-                        hovertemplate="%{hovertext}<extra></extra>",
+                        hoverinfo="none",
+                        hovertemplate=None,
                     ),
                     row=1,
                     col=col,
@@ -505,7 +539,8 @@ class DashboardCallbackRegistry:
                         textposition="top center",
                         textfont=dict(color="#ffffff", size=10),
                         hovertext=[text],
-                        hovertemplate="%{hovertext}<extra></extra>",
+                        hoverinfo="skip",
+                        hovertemplate=None,
                         name=f"{label} hover",
                         showlegend=False,
                     ),
@@ -523,8 +558,10 @@ class DashboardCallbackRegistry:
             legend=dict(orientation="h", y=-0.08, x=0.5, xanchor="center"),
             hovermode="closest",
             hoverdistance=20,
-            uirevision="gear-map",
-            margin=dict(l=30, r=30, t=70, b=60),
+            uirevision=revision,
+            datarevision=revision,
+            autosize=True,
+            margin=dict(l=15, r=15, t=60, b=55),
         )
         return fig
 
@@ -552,7 +589,15 @@ class DashboardCallbackRegistry:
         return cls._empty_fig("Lap Times for Selected Drivers")
 
     @classmethod
-    def _build_all_charts(cls, lap_df, summary_df, num_laps, track_df=None):
+    def _build_all_charts(
+        cls,
+        lap_df,
+        summary_df,
+        num_laps,
+        track_df=None,
+        speed_hover_distance=None,
+        gear_hover_distance=None,
+    ):
         """Builds all dashboard charts."""
         results = [cls._build_lap_summary_chart(summary_df, len(summary_df))]
 
@@ -574,8 +619,8 @@ class DashboardCallbackRegistry:
         if track_df is None:
             track_df = lap_df
 
-        results.append(cls._build_speed_track_grid(track_df))
-        results.append(cls._build_gear_track_grid(track_df))
+        results.append(cls._build_speed_track_grid(track_df, hover_distance=speed_hover_distance))
+        results.append(cls._build_gear_track_grid(track_df, hover_distance=gear_hover_distance))
 
         return tuple(results)
 
@@ -589,6 +634,14 @@ class DashboardCallbackRegistry:
         # Capture helpers for use inside nested callback functions
         instance = self
         cls = type(self)
+
+        app.clientside_callback(
+            ClientsideFunction(namespace="sedpTrackHover", function_name="sync"),
+            Output("track-hover-sync-store", "data"),
+            Input("trackmap-graph", "hoverData"),
+            Input("gear-map-graph", "hoverData"),
+            prevent_initial_call=True,
+        )
 
         @app.callback(
             Output("event-input", "options"),
@@ -779,6 +832,7 @@ class DashboardCallbackRegistry:
             Output("full-event-load-status", "style", allow_duplicate=True),
             Output("telemetry-load-status", "children", allow_duplicate=True),
             Output("telemetry-load-status", "style", allow_duplicate=True),
+            Output("telemetry-loading-banner", "style", allow_duplicate=True),
             Input("year-input", "value"),
             Input("event-input", "value"),
             Input("session-input", "value"),
@@ -795,6 +849,7 @@ class DashboardCallbackRegistry:
                 small_style,
                 "",
                 telemetry_style,
+                {"display": "none"},
             )
 
         @app.callback(
@@ -1099,12 +1154,33 @@ class DashboardCallbackRegistry:
             Output("telemetry-load-status", "children"),
             Output("telemetry-load-status", "style"),
             Input("results-table", "selected_rows"),
-            State("results-table", "data"),
+            Input("results-table", "data"),
+            Input("show-all-laps-toggle", "value"),
             State("bundle-store", "data"),
+            running=[
+                (
+                    Output("telemetry-load-status", "children", allow_duplicate=True),
+                    "Loading telemetry for selected drivers...",
+                    "Telemetry selection update finished.",
+                ),
+                (
+                    Output("telemetry-load-status", "style", allow_duplicate=True),
+                    {"color": "#fbbf24", "fontSize": "0.8em", "marginBottom": "10px"},
+                    {"color": "#888", "fontSize": "0.8em", "marginBottom": "10px"},
+                ),
+                (
+                    Output("telemetry-loading-banner", "style", allow_duplicate=True),
+                    {"display": "flex"},
+                    {"display": "none"},
+                ),
+            ],
         )
-        def update_lap_selection_table(selected_rows, rows, bundle_data):
+        def update_lap_selection_table(selected_rows, rows, show_all_values, bundle_data):
             status_style = {"color": "#888", "fontSize": "0.8em", "marginBottom": "14px"}
             hidden_panel = {"display": "none"}
+            show_all = "all" in (show_all_values or [])
+            lap_limit = None if show_all else 10
+            table_label = "all laps" if show_all else "10 fastest laps"
             drivers = cls._drivers_from_selected_rows(selected_rows, rows)
             if not drivers:
                 outputs = []
@@ -1116,7 +1192,12 @@ class DashboardCallbackRegistry:
                 outputs = []
                 for _ in range(3):
                     outputs.extend(["", [], [], [], hidden_panel])
-                return (*outputs, "Load a session before selecting laps.", "Load a session first.", {**status_style, "color": "#fbbf24"})
+                return (
+                    *outputs,
+                    "Load a session before selecting laps.",
+                    "Load a session first.",
+                    {**status_style, "color": "#fbbf24"},
+                )
 
             bd = bundle_data or {}
             year, event, sc = bd.get("year"), bd.get("event"), bd.get("session")
@@ -1139,15 +1220,17 @@ class DashboardCallbackRegistry:
                     outputs.extend(["", [], [], [], hidden_panel])
                     continue
                 driver = drivers[idx]
-                table = cls._top_lap_table_for_driver(summary, driver, limit=10)
-                title = f"{driver}: 10 fastest laps"
+                table = cls._top_lap_table_for_driver(summary, driver, limit=lap_limit)
+                title = f"{driver}: {table_label}"
                 selected = [0] if not table.empty else []
                 panel_style = {"display": "block"}
                 outputs.extend([title, cls._lap_table_columns(table), table.to_dict("records"), selected, panel_style])
             selection_text = (
-                "Each driver table shows the 10 fastest laps. "
-                "The fastest lap is selected by default; select rows to choose exact laps for telemetry."
+                "Each driver table shows all laps. Scroll inside the table to browse them."
+                if show_all
+                else "Each driver table shows the 10 fastest laps."
             )
+            selection_text += " The fastest lap is selected by default; select rows to choose exact laps for telemetry."
             telemetry_text = " | ".join(messages) if messages else "Telemetry ready from local cache."
             color = "#ef4444" if any("Could not" in msg for msg in messages) else "#4ade80"
             return (*outputs, selection_text, telemetry_text, {**status_style, "color": color})
@@ -1166,7 +1249,7 @@ class DashboardCallbackRegistry:
             Output("track-lap-dropdown-3", "value"),
             Output("track-lap-control-3", "style"),
             Input("results-table", "selected_rows"),
-            State("results-table", "data"),
+            Input("results-table", "data"),
             State("bundle-store", "data"),
         )
         def update_track_lap_controls(selected_rows, rows, bundle_data):
@@ -1206,34 +1289,42 @@ class DashboardCallbackRegistry:
             Output("trackmap-graph", "figure"),
             Output("gear-map-graph", "figure"),
             Output("track-telemetry-store", "data"),
+            Output("telemetry-loading-banner", "style", allow_duplicate=True),
             Input("driver-dropdown", "value"),
             Input("bundle-store", "data"),
             Input("results-table", "selected_rows"),
+            Input("results-table", "data"),
             Input("lap-selection-table-1", "selected_rows"),
             Input("lap-selection-table-2", "selected_rows"),
             Input("lap-selection-table-3", "selected_rows"),
+            Input("lap-selection-table-1", "data"),
+            Input("lap-selection-table-2", "data"),
+            Input("lap-selection-table-3", "data"),
             Input("track-lap-dropdown-1", "value"),
             Input("track-lap-dropdown-2", "value"),
             Input("track-lap-dropdown-3", "value"),
-            State("results-table", "data"),
-            State("lap-selection-table-1", "data"),
-            State("lap-selection-table-2", "data"),
-            State("lap-selection-table-3", "data"),
+            Input("track-lap-dropdown-1", "options"),
+            Input("track-lap-dropdown-2", "options"),
+            Input("track-lap-dropdown-3", "options"),
+            prevent_initial_call=True,
         )
         def update_dashboard(
             driver,
             bundle_data,
             selected_rows,
+            rows,
             selected_lap_rows_1,
             selected_lap_rows_2,
             selected_lap_rows_3,
-            track_lap_1,
-            track_lap_2,
-            track_lap_3,
-            rows,
             lap_table_rows_1,
             lap_table_rows_2,
             lap_table_rows_3,
+            track_lap_1,
+            track_lap_2,
+            track_lap_3,
+            _track_lap_options_1,
+            _track_lap_options_2,
+            _track_lap_options_3,
         ):
             selected_drivers = cls._drivers_from_selected_rows(selected_rows, rows, fallback=driver)
             if not selected_drivers and driver:
@@ -1294,41 +1385,33 @@ class DashboardCallbackRegistry:
             )
 
             if lap_df.empty:
+                track_fig = cls._build_speed_track_grid(track_df)
+                gear_track_fig = cls._build_gear_track_grid(track_df)
                 return (
                     f"Selected Laps: {selected_count}",
                     "Max Speed: n/a", "Samples: 0", "Best Lap: n/a",
-                    *cls._empty_dashboard()[4:],
+                    cls._empty_fig("Lap Times for Selected Drivers"),
+                    cls._empty_fig("Speed"),
+                    cls._empty_fig("Gear"),
+                    cls._empty_fig("Throttle / Brake"),
+                    track_fig,
+                    gear_track_fig,
+                    cls._track_store_data(track_df),
+                    {"display": "none"},
                 )
 
             kpis = cls._compute_kpi_strings(lap_df, selected_summary_df, selected_count)
-            charts = cls._build_all_charts(lap_df, all_summary_df, selected_count, track_df)
+            charts = cls._build_all_charts(
+                lap_df,
+                all_summary_df,
+                selected_count,
+                track_df,
+            )
 
             return (
                 *kpis,
                 charts[0],
                 *charts[1:],
                 cls._track_store_data(track_df),
-            )
-
-        @app.callback(
-            Output("trackmap-graph", "figure", allow_duplicate=True),
-            Output("gear-map-graph", "figure", allow_duplicate=True),
-            Input("trackmap-graph", "hoverData"),
-            Input("gear-map-graph", "hoverData"),
-            State("track-telemetry-store", "data"),
-            prevent_initial_call=True,
-        )
-        def sync_track_hover(track_hover, gear_hover, track_data):
-            track_df = cls._track_store_frame(track_data)
-            if track_df.empty:
-                return no_update, no_update
-
-            trigger = callback_context.triggered[0]["prop_id"].split(".")[0] if callback_context.triggered else ""
-            hover_data = gear_hover if trigger == "gear-map-graph" else track_hover
-            hover_distance = cls._track_hover_distance(hover_data)
-            if hover_distance is None or pd.isna(hover_distance):
-                return no_update, no_update
-            return (
-                cls._build_speed_track_grid(track_df, hover_distance),
-                cls._build_gear_track_grid(track_df, hover_distance),
+                {"display": "none"},
             )
