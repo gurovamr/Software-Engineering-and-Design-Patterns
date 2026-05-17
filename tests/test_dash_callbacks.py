@@ -65,9 +65,9 @@ class TestEmptyDashboard:
         reg = _make_registry()
         result = reg._empty_dashboard()
 
-        # Updated expected length: 11 items
+        # Expected length: 12 items
         assert isinstance(result, tuple)
-        assert len(result) == 11
+        assert len(result) == 12
 
         # First four are KPI strings
         for s in result[:4]:
