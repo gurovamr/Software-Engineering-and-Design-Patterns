@@ -102,6 +102,7 @@ python -m streamlit run app.py
 - [x] Build a dashboard
 - [x] Add local storage functionality (database).
 - [x] Implement OOD principles for applicable entities
+- [x] Add a pipeline with unit testing.
 
 [Back to top](#readme-top)
 
