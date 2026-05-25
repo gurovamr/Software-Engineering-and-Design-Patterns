@@ -1,0 +1,564 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Generiert durch Microsoft Visio, SVG Export activity_diagram_swimlane.svg Page-1 -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:ev="http://www.w3.org/2001/xml-events"
+		xmlns:v="http://schemas.microsoft.com/visio/2003/SVGExtensions/" width="8.26772in" height="11.6929in"
+		viewBox="0 0 595.276 841.89" xml:space="preserve" color-interpolation-filters="sRGB" class="st21">
+	<v:documentProperties v:langID="2055" v:metric="true" v:viewMarkup="false">
+		<v:userDefs>
+			<v:ud v:nameU="msvNoAutoConnect" v:val="VT0(1):26"/>
+		</v:userDefs>
+	</v:documentProperties>
+
+	<style type="text/css">
+	<![CDATA[
+		.st1 {fill:#dde2cd;stroke:#0070c0;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.24}
+		.st2 {fill:#dde2cd;stroke:#9dbb61;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.24}
+		.st3 {fill:#9dbb61;fill-opacity:0.52;stroke:#9dbb61;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.24}
+		.st4 {fill:#000000;font-family:Calibri;font-size:0.666664em;font-weight:bold}
+		.st5 {fill:#dde2cd;stroke:#ab9ac0;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.24}
+		.st6 {fill:#ab9ac0;fill-opacity:0.52;stroke:#ab9ac0;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.24}
+		.st7 {font-size:1em}
+		.st8 {fill:#dde2cd;stroke:#f59d56;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.24}
+		.st9 {fill:#f59d56;fill-opacity:0.52;stroke:#f59d56;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.24}
+		.st10 {fill:#dde2cd;stroke:#7f7f7f;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.24}
+		.st11 {fill:#7f7f7f;fill-opacity:0.52;stroke:#7f7f7f;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.24}
+		.st12 {fill:#4bacc6;fill-opacity:0.52;stroke:#4bacc6;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.24}
+		.st13 {fill:#000000;font-family:Calibri;font-size:0.499992em}
+		.st14 {marker-end:url(#mrkr4-57);stroke:#000000;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.75}
+		.st15 {fill:#000000;fill-opacity:1;stroke:#000000;stroke-opacity:1;stroke-width:0.22935779816514}
+		.st16 {fill:#ffffff;stroke:none;stroke-linecap:butt;stroke-width:7.2}
+		.st17 {fill:#000000;font-family:Calibri;font-size:0.666664em}
+		.st18 {fill:#ffffff;stroke:none;stroke-linecap:butt}
+		.st19 {stroke:#000000;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.75}
+		.st20 {marker-end:url(#mrkr4-57);stroke:#000000;stroke-dasharray:0,3.75;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.75}
+		.st21 {fill:none;fill-rule:evenodd;font-size:12px;overflow:visible;stroke-linecap:square;stroke-miterlimit:3}
+	]]>
+	</style>
+
+	<defs id="Markers">
+		<g id="lend4">
+			<path d="M 2 1 L 0 0 L 2 -1 L 2 1 " style="stroke:none"/>
+		</g>
+		<marker id="mrkr4-57" class="st15" v:arrowType="4" v:arrowSize="2" v:setback="8.72" refX="-8.72" orient="auto"
+				markerUnits="strokeWidth" overflow="visible">
+			<use xlink:href="#lend4" transform="scale(-4.36,-4.36) "/>
+		</marker>
+	</defs>
+	<g v:mID="0" v:index="1" v:groupContext="foregroundPage">
+		<title>Zeichenblatt-1</title>
+		<v:pageProperties v:drawingScale="0.0393701" v:pageScale="0.0393701" v:drawingUnits="24" v:shadowOffsetX="8.50394"
+				v:shadowOffsetY="-8.50394"/>
+		<v:layer v:name="Container" v:index="0"/>
+		<v:layer v:name="Verbinder" v:index="1"/>
+		<g id="shape12-1" v:mID="12" v:groupContext="shape" transform="translate(1.91339,-754.016)">
+			<title>Feld</title>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<rect x="0" y="772.016" width="587.693" height="69.874" class="st1"/>
+		</g>
+		<g id="shape14-3" v:mID="14" v:groupContext="shape" transform="translate(1.91339,-680.315)">
+			<title>Feld.14</title>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<rect x="0" y="772.016" width="587.693" height="69.874" class="st2"/>
+		</g>
+		<g id="shape15-5" v:mID="15" v:groupContext="shape" transform="translate(1.91339,-680.315)">
+			<title>Feld.15</title>
+			<desc>Service Layer</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="39.189" cy="806.953" width="78.38" height="69.874"/>
+			<rect x="0" y="772.016" width="78.378" height="69.874" class="st3"/>
+			<text x="17.4" y="809.35" class="st4" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Service Layer</text>		</g>
+		<g id="shape16-8" v:mID="16" v:groupContext="shape" transform="translate(1.91339,-606.614)">
+			<title>Feld.16</title>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<rect x="0" y="772.016" width="587.693" height="69.874" class="st5"/>
+		</g>
+		<g id="shape17-10" v:mID="17" v:groupContext="shape" transform="translate(1.91339,-606.614)">
+			<title>Feld.17</title>
+			<desc>Database Access Layer</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="39.189" cy="806.953" width="78.38" height="69.874"/>
+			<rect x="0" y="772.016" width="78.378" height="69.874" class="st6"/>
+			<text x="11.72" y="804.55" class="st4" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Database Access <tspan
+						x="30.19" dy="1.2em" class="st7">Layer</tspan></text>		</g>
+		<g id="shape18-14" v:mID="18" v:groupContext="shape" transform="translate(1.91339,-532.913)">
+			<title>Feld.18</title>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<rect x="0" y="772.016" width="587.693" height="69.874" class="st8"/>
+		</g>
+		<g id="shape19-16" v:mID="19" v:groupContext="shape" transform="translate(1.91339,-532.913)">
+			<title>Feld.19</title>
+			<desc>Data Loading Layer</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="39.189" cy="806.953" width="78.38" height="69.874"/>
+			<rect x="0" y="772.016" width="78.378" height="69.874" class="st9"/>
+			<text x="7.54" y="809.35" class="st4" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Data Loading Layer</text>		</g>
+		<g id="shape20-19" v:mID="20" v:groupContext="shape" transform="translate(1.91339,-459.213)">
+			<title>Feld.20</title>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<rect x="0" y="772.016" width="587.693" height="69.874" class="st10"/>
+		</g>
+		<g id="shape21-21" v:mID="21" v:groupContext="shape" transform="translate(1.91339,-459.213)">
+			<title>Feld.21</title>
+			<desc>VISUALIZATION LAYER</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="39.189" cy="806.953" width="78.38" height="69.874"/>
+			<rect x="0" y="772.016" width="78.378" height="69.874" class="st11"/>
+			<text x="13.35" y="804.55" class="st4" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>VISUALIZATION <tspan
+						x="28.79" dy="1.2em" class="st7">LAYER</tspan></text>		</g>
+		<g id="shape13-25" v:mID="13" v:groupContext="shape" transform="translate(1.91339,-754.016)">
+			<title>Feld.13</title>
+			<desc>DASH APPLICATION LAYER</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="39.189" cy="806.953" width="78.38" height="69.874"/>
+			<rect x="0" y="772.016" width="78.378" height="69.874" class="st12"/>
+			<text x="6.56" y="804.55" class="st4" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>DASH APPLICATION <tspan
+						x="28.79" dy="1.2em" class="st7">LAYER</tspan></text>		</g>
+		<g id="shape22-29" v:mID="22" v:groupContext="shape" transform="translate(139.819,-782.362)">
+			<title>Feld.22</title>
+			<desc>Enter login / register</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st12"/>
+			<text x="13.3" y="828.06" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Enter login / <tspan
+						x="18.99" dy="1.2em" class="st7">register</tspan></text>		</g>
+		<g id="shape23-33" v:mID="23" v:groupContext="shape" transform="translate(139.819,-720)">
+			<title>Feld.23</title>
+			<desc>AuthService handles login</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st3"/>
+			<text x="13.73" y="828.06" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>AuthService <tspan
+						x="12.2" dy="1.2em" class="st7">handles login</tspan></text>		</g>
+		<g id="shape24-37" v:mID="24" v:groupContext="shape" transform="translate(94.4646,-688.128)">
+			<title>Feld.24</title>
+			<desc>Create user + store favorite driver</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st3"/>
+			<text x="5.16" y="828.06" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Create user + store <tspan
+						x="10.94" dy="1.2em" class="st7">favorite driver</tspan></text>		</g>
+		<g id="shape25-41" v:mID="25" v:groupContext="shape" transform="translate(179.504,-688.128)">
+			<title>Feld.25</title>
+			<desc>Verify password</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st3"/>
+			<text x="8.76" y="831.66" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Verify password</text>		</g>
+		<g id="shape27-44" v:mID="27" v:groupContext="shape" transform="translate(139.819,-643.695)">
+			<title>Raute</title>
+			<desc>User exists in DB?</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="827.832" width="42.52" height="14.0581"/>
+			<path d="M0 827.83 L28.35 813.77 L56.69 827.83 L28.35 841.89 L0 827.83 Z" class="st6"/>
+			<text x="12.26" y="826.03" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>User exists in <tspan
+						x="23.48" dy="1.2em" class="st7">DB?</tspan></text>		</g>
+		<g id="shape29-48" v:mID="29" v:groupContext="shape" transform="translate(179.504,-614.427)">
+			<title>Feld.29</title>
+			<desc>Log login event + store user info</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st6"/>
+			<text x="7.69" y="828.06" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Log login event + <tspan
+						x="10.64" dy="1.2em" class="st7">store user info</tspan></text>		</g>
+		<g id="shape30-52" v:mID="30" v:groupContext="shape" v:layerMember="1" transform="translate(161.079,-782.362)">
+			<title>Dynamischer Verbinder</title>
+			<path d="M7.09 841.89 L7.09 873.65" class="st14"/>
+		</g>
+		<g id="shape31-58" v:mID="31" v:groupContext="shape" v:layerMember="1" transform="translate(161.079,-720)">
+			<title>Dynamischer Verbinder.31</title>
+			<path d="M7.09 841.89 L7.09 883.54" class="st14"/>
+		</g>
+		<g id="shape32-63" v:mID="32" v:groupContext="shape" v:layerMember="1" transform="translate(195.094,-657.753)">
+			<title>Dynamischer Verbinder.32</title>
+			<desc>Yes</desc>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="12.7559" cy="832.372" width="40" height="17.6036"/>
+			<path d="M1.42 841.89 L12.76 841.89 L12.76 818.05" class="st14"/>
+			<rect v:rectContext="textBkgnd" x="7.25209" y="827.572" width="11.0078" height="9.59985" class="st16"/>
+			<text x="7.25" y="834.77" class="st17" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Yes</text>		</g>
+		<g id="shape33-70" v:mID="33" v:groupContext="shape" v:layerMember="1" transform="translate(139.819,-657.753)">
+			<title>Dynamischer Verbinder.33</title>
+			<desc>No</desc>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="-17.0079" cy="835.206" width="40" height="17.6036"/>
+			<path d="M0 841.89 L-17.01 841.89 L-17.01 818.05" class="st14"/>
+			<rect v:rectContext="textBkgnd" x="-21.6992" y="830.406" width="9.38287" height="9.59985" class="st18"/>
+			<text x="-21.7" y="837.61" class="st17" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>No</text>		</g>
+		<g id="shape34-77" v:mID="34" v:groupContext="shape" transform="translate(216.354,-782.362)">
+			<title>Feld.34</title>
+			<desc>Show Dashboard</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st12"/>
+			<text x="7.74" y="831.66" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Show Dashboard</text>		</g>
+		<g id="shape35-80" v:mID="35" v:groupContext="shape" v:layerMember="1" transform="translate(233.362,-700.157)">
+			<title>Dynamischer Verbinder.35</title>
+			<path d="M2.83 841.89 L11.34 841.89 L11.34 766.23" class="st14"/>
+		</g>
+		<g id="shape36-85" v:mID="36" v:groupContext="shape" v:layerMember="1" transform="translate(195.094,-657.753)">
+			<title>Dynamischer Verbinder.36</title>
+			<path d="M1.42 841.89 L12.76 841.89 L12.76 854.62" class="st14"/>
+		</g>
+		<g id="shape37-90" v:mID="37" v:groupContext="shape" transform="translate(294.307,-793.701)">
+			<title>Feld.37</title>
+			<desc>Select year, event, session</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st12"/>
+			<text x="5.91" y="828.06" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Select year, event, <tspan
+						x="19.49" dy="1.2em" class="st7">session</tspan></text>		</g>
+		<g id="shape38-94" v:mID="38" v:groupContext="shape" v:layerMember="1" transform="translate(273.047,-792.974)">
+			<title>Dynamischer Verbinder.38</title>
+			<path d="M0 840.47 L10.63 840.47 L10.63 829.13 L14.72 829.13" class="st14"/>
+		</g>
+		<g id="shape39-99" v:mID="39" v:groupContext="shape" transform="translate(294.307,-760.411)">
+			<title>Feld.39</title>
+			<desc>Load session</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st12"/>
+			<text x="12.95" y="831.66" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Load session</text>		</g>
+		<g id="shape40-102" v:mID="40" v:groupContext="shape" v:layerMember="1" transform="translate(315.567,-796.172)">
+			<title>Dynamischer Verbinder.40</title>
+			<path d="M7.09 844.36 L7.09 847.05" class="st14"/>
+		</g>
+		<g id="shape41-107" v:mID="41" v:groupContext="shape" transform="translate(294.307,-703.175)">
+			<title>Feld.41</title>
+			<desc>Load session overview</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st3"/>
+			<text x="12.95" y="828.06" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Load session <tspan
+						x="17.19" dy="1.2em" class="st7">overview</tspan></text>		</g>
+		<g id="shape42-111" v:mID="42" v:groupContext="shape" transform="translate(294.307,-643.695)">
+			<title>Raute.42</title>
+			<desc>Overview in DB?</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="827.832" width="42.52" height="14.0581"/>
+			<path d="M0 827.83 L28.35 813.77 L56.69 827.83 L28.35 841.89 L0 827.83 Z" class="st6"/>
+			<text x="13.84" y="826.03" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Overview in <tspan
+						x="23.48" dy="1.2em" class="st7">DB?</tspan></text>		</g>
+		<g id="shape43-115" v:mID="43" v:groupContext="shape" v:layerMember="1" transform="translate(315.567,-760.411)">
+			<title>Dynamischer Verbinder.43</title>
+			<path d="M7.09 841.89 L7.09 868.53" class="st14"/>
+		</g>
+		<g id="shape44-120" v:mID="44" v:groupContext="shape" v:layerMember="1" transform="translate(329.74,-703.175)">
+			<title>Dynamischer Verbinder.44</title>
+			<path d="M-7.09 841.89 L-7.09 866.71" class="st14"/>
+		</g>
+		<g id="shape45-125" v:mID="45" v:groupContext="shape" v:layerMember="1" transform="translate(94.4646,-700.157)">
+			<title>Dynamischer Verbinder.45</title>
+			<path d="M0 841.89 L-5.31 841.89 L-5.31 915.59 L78.5 915.59" class="st14"/>
+		</g>
+		<g id="shape46-130" v:mID="46" v:groupContext="shape" transform="translate(294.307,-561.26)">
+			<title>Feld.46</title>
+			<desc>FastF1 quick load results + laps only</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st9"/>
+			<text x="7.34" y="828.06" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>FastF1 quick load<v:lf/><tspan
+						x="6.58" dy="1.2em" class="st7">results + laps only</tspan></text>		</g>
+		<g id="shape47-134" v:mID="47" v:groupContext="shape" transform="translate(294.307,-614.427)">
+			<title>Feld.47</title>
+			<desc>Save results + laps</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st6"/>
+			<text x="6.12" y="831.66" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Save results + laps</text>		</g>
+		<g id="shape48-137" v:mID="48" v:groupContext="shape" v:layerMember="1" transform="translate(287.22,-657.753)">
+			<title>Dynamischer Verbinder.48</title>
+			<desc>No</desc>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="-3.54331" cy="884.122" width="40" height="17.6036"/>
+			<path d="M7.09 841.89 L-3.54 841.89 L-3.54 926.35 L0.55 926.35" class="st14"/>
+			<rect v:rectContext="textBkgnd" x="-8.23468" y="879.322" width="9.38287" height="9.59985" class="st16"/>
+			<text x="-8.23" y="886.52" class="st17" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>No</text>		</g>
+		<g id="shape49-144" v:mID="49" v:groupContext="shape" v:layerMember="1" transform="translate(315.567,-585.319)">
+			<title>Dynamischer Verbinder.49</title>
+			<path d="M7.09 841.89 L7.09 819.32" class="st14"/>
+		</g>
+		<g id="shape50-149" v:mID="50" v:groupContext="shape" transform="translate(375.094,-629.291)">
+			<title>Feld.50</title>
+			<desc>Return stored session bundle</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st6"/>
+			<text x="11.47" y="828.06" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Return stored <tspan
+						x="10.32" dy="1.2em" class="st7">session bundle</tspan></text>		</g>
+		<g id="shape51-153" v:mID="51" v:groupContext="shape" v:layerMember="1" transform="translate(351,-657.753)">
+			<title>Dynamischer Verbinder.51</title>
+			<desc>Yes</desc>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="10.6299" cy="851.523" width="40" height="17.6036"/>
+			<path d="M0 841.89 L10.63 841.89 L10.63 858.32 L24.09 858.32" class="st19"/>
+			<rect v:rectContext="textBkgnd" x="5.12611" y="846.723" width="11.0078" height="9.59985" class="st16"/>
+			<text x="5.13" y="853.92" class="st17" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Yes</text>		</g>
+		<g id="shape52-158" v:mID="52" v:groupContext="shape" v:layerMember="1" transform="translate(351,-626.457)">
+			<title>Dynamischer Verbinder.52</title>
+			<path d="M0 841.89 L10.63 841.89 L10.63 827.03 L17.55 827.03" class="st14"/>
+		</g>
+		<g id="shape53-163" v:mID="53" v:groupContext="shape" transform="translate(375.094,-702.992)">
+			<title>Feld.53</title>
+			<desc>Build overview results, podium</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st3"/>
+			<text x="10.35" y="828.06" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Build overview<v:lf/><tspan
+						x="9.37" dy="1.2em" class="st7">results, podium</tspan></text>		</g>
+		<g id="shape54-167" v:mID="54" v:groupContext="shape" transform="translate(366.591,-782.362)">
+			<title>Feld.54</title>
+			<desc>Populate results + overview</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st12"/>
+			<text x="6.43" y="828.06" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Populate results + <tspan
+						x="17.19" dy="1.2em" class="st7">overview</tspan></text>		</g>
+		<g id="shape55-171" v:mID="55" v:groupContext="shape" v:layerMember="1" transform="translate(396.354,-653.35)">
+			<title>Dynamischer Verbinder.55</title>
+			<path d="M7.09 841.89 L7.09 798.79" class="st14"/>
+		</g>
+		<g id="shape56-176" v:mID="56" v:groupContext="shape" v:layerMember="1" transform="translate(406.276,-727.051)">
+			<title>Dynamischer Verbinder.56</title>
+			<path d="M-2.83 841.89 L-2.83 831.26 L-11.34 831.26 L-11.34 793.12" class="st14"/>
+		</g>
+		<g id="shape57-181" v:mID="57" v:groupContext="shape" transform="translate(374.173,-561.26)">
+			<title>Feld.57</title>
+			<desc>FastF1 cache reuse downloaded data</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st9"/>
+			<text x="12.73" y="824.46" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>FastF1 cache<v:lf/><tspan
+						x="5.66" dy="1.2em" class="st7">reuse downloaded </tspan><tspan x="22.89" dy="1.2em" class="st7">data</tspan></text>		</g>
+		<g id="shape59-186" v:mID="59" v:groupContext="shape" v:layerMember="1" transform="translate(351,-566.203)">
+			<title>Dynamischer Verbinder.59</title>
+			<path d="M0 834.8 L16.63 834.8" class="st20"/>
+		</g>
+		<g id="shape60-191" v:mID="60" v:groupContext="shape" transform="translate(443.126,-782.362)">
+			<title>Feld.60</title>
+			<desc>Driver Selection 1-3 drivers</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st12"/>
+			<text x="9.02" y="828.06" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Driver Selection<v:lf/><tspan
+						x="15.33" dy="1.2em" class="st7">1</tspan>-3 drivers</text>		</g>
+		<g id="shape61-195" v:mID="61" v:groupContext="shape" v:layerMember="1" transform="translate(423.283,-787.305)">
+			<title>Dynamischer Verbinder.61</title>
+			<path d="M0 834.8 L13.3 834.8" class="st14"/>
+		</g>
+		<g id="shape62-200" v:mID="62" v:groupContext="shape" transform="translate(521.575,-782.362)">
+			<title>Feld.62</title>
+			<desc>Select laps</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st12"/>
+			<text x="15.47" y="831.66" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Select laps</text>		</g>
+		<g id="shape63-203" v:mID="63" v:groupContext="shape" transform="translate(443.126,-702.992)">
+			<title>Feld.63</title>
+			<desc>Session Service load driver telem.</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st3"/>
+			<text x="9.88" y="828.06" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Session Service<v:lf/><tspan
+						x="6.67" dy="1.2em" class="st7">load driver telem.</tspan></text>		</g>
+		<g id="shape64-207" v:mID="64" v:groupContext="shape" v:layerMember="1" transform="translate(464.386,-782.362)">
+			<title>Dynamischer Verbinder.64</title>
+			<path d="M7.09 841.89 L7.09 890.66" class="st14"/>
+		</g>
+		<g id="shape65-212" v:mID="65" v:groupContext="shape" v:layerMember="1" transform="translate(499.819,-787.305)">
+			<title>Dynamischer Verbinder.65</title>
+			<path d="M0 834.8 L15.22 834.8" class="st14"/>
+		</g>
+		<g id="shape66-217" v:mID="66" v:groupContext="shape" transform="translate(443.126,-629.291)">
+			<title>Raute.66</title>
+			<desc>Telemetry in DB?</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="827.832" width="42.52" height="14.0581"/>
+			<path d="M0 827.83 L28.35 813.77 L56.69 827.83 L28.35 841.89 L0 827.83 Z" class="st6"/>
+			<text x="12.97" y="826.03" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Telemetry in <tspan
+						x="23.48" dy="1.2em" class="st7">DB?</tspan></text>		</g>
+		<g id="shape67-221" v:mID="67" v:groupContext="shape" transform="translate(521.575,-646.299)">
+			<title>Feld.67</title>
+			<desc>Return stored driver telemtry</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st6"/>
+			<text x="11.47" y="828.06" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Return stored <tspan
+						x="9.98" dy="1.2em" class="st7">driver telemtry</tspan></text>		</g>
+		<g id="shape68-225" v:mID="68" v:groupContext="shape" v:layerMember="1" transform="translate(464.386,-702.992)">
+			<title>Dynamischer Verbinder.68</title>
+			<path d="M7.09 841.89 L7.09 880.93" class="st14"/>
+		</g>
+		<g id="shape69-230" v:mID="69" v:groupContext="shape" v:layerMember="1" transform="translate(499.819,-643.349)">
+			<title>Dynamischer Verbinder.69</title>
+			<desc>Yes</desc>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="10.6299" cy="834.152" width="40" height="17.6036"/>
+			<path d="M0 841.89 L10.63 841.89 L10.63 826.91 L15.22 826.91" class="st14"/>
+			<rect v:rectContext="textBkgnd" x="5.12611" y="829.352" width="11.0078" height="9.59985" class="st18"/>
+			<text x="5.13" y="836.55" class="st17" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Yes</text>		</g>
+		<g id="shape70-237" v:mID="70" v:groupContext="shape" transform="translate(521.575,-612.283)">
+			<title>Feld.70</title>
+			<desc>Save telemetry data</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st6"/>
+			<text x="10.03" y="828.06" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Save telemetry <tspan
+						x="22.89" dy="1.2em" class="st7">data</tspan></text>		</g>
+		<g id="shape71-241" v:mID="71" v:groupContext="shape" transform="translate(447.874,-561.26)">
+			<title>Feld.71</title>
+			<desc>FastF1 telemetry load (selected driver)</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st9"/>
+			<text x="7.8" y="824.46" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>FastF1 telemetry <tspan
+						x="11.29" dy="1.2em" class="st7">load (selected </tspan><tspan x="20.23" dy="1.2em" class="st7">driver)</tspan></text>		</g>
+		<g id="shape72-246" v:mID="72" v:groupContext="shape" transform="translate(520.583,-561.26)">
+			<title>Feld.72</title>
+			<desc>FastF1 cache add telemtry data</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st9"/>
+			<text x="12.73" y="828.06" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>FastF1 cache<v:lf/><tspan
+						x="6.46" dy="1.2em" class="st7">add telemtry data</tspan></text>		</g>
+		<g id="shape74-250" v:mID="74" v:groupContext="shape" v:layerMember="1" transform="translate(504.567,-566.203)">
+			<title>Dynamischer Verbinder.74</title>
+			<path d="M0 834.8 L9.48 834.8" class="st20"/>
+		</g>
+		<g id="shape76-255" v:mID="76" v:groupContext="shape" v:layerMember="1" transform="translate(438.413,-643.349)">
+			<title>Dynamischer Verbinder.76</title>
+			<desc>No</desc>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="-0.744084" cy="868.42" width="40" height="17.6036"/>
+			<path d="M4.71 841.89 L-0.6 841.89 L-0.6 911.95 L2.92 911.95" class="st14"/>
+			<rect v:rectContext="textBkgnd" x="-5.43546" y="863.621" width="9.38287" height="9.59985" class="st18"/>
+			<text x="-5.44" y="870.82" class="st17" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>No</text>		</g>
+		<g id="shape77-262" v:mID="77" v:groupContext="shape" v:layerMember="1" transform="translate(476.22,-585.319)">
+			<title>Dynamischer Verbinder.77</title>
+			<path d="M0 841.89 L0 802.9 L38.81 802.9" class="st14"/>
+		</g>
+		<g id="shape78-267" v:mID="78" v:groupContext="shape" transform="translate(521.575,-702.992)">
+			<title>Feld.78</title>
+			<desc>Telemetry metrics + chart data</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.3465" cy="829.86" width="56.7" height="24.0591"/>
+			<rect x="0" y="817.831" width="56.6929" height="24.0591" class="st3"/>
+			<text x="6.16" y="828.06" class="st13" v:langID="2055"><v:paragraph v:horizAlign="1"/><v:tabList/>Telemetry metrics<v:lf/><tspan
+						x="13.71" dy="1.2em" class="st7">+ chart data</tspan></text>		</g>
+		<g id="shape79-271" v:mID="79" v:groupContext="shape" v:layerMember="1" transform="translate(542.835,-670.358)">
+			<title>Dynamischer Verbinder.79</title>
+			<path d="M7.09 841.89 L7.09 815.8" class="st14"/>
+		</g>
+		<g id="shape80-276" v:mID="80" v:groupContext="shape" v:layerMember="1" transform="translate(542.835,-634.234)">
+			<title>Dynamischer Verbinder.80</title>
+			<path d="M7.09 839.78 L7.09 836.36" class="st14"/>
+		</g>
+		<g id="shape81-281" v:mID="81" v:groupContext="shape" v:layerMember="1" transform="translate(542.835,-782.362)">
+			<title>Dynamischer Verbinder.81</title>
+			<path d="M7.09 841.89 L7.09 890.66" class="st14"/>
+		</g>
+	</g>
+</svg>

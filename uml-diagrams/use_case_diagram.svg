@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1050" viewBox="0 0 1600 1050">
+  <defs>
+    <style>
+      .title{font:700 34px Arial,sans-serif;fill:#111}
+      .label{font:600 18px Arial,sans-serif;fill:#111;text-anchor:middle}
+      .small{font:15px Arial,sans-serif;fill:#222;text-anchor:middle}
+      .actor{stroke:#222;stroke-width:3;fill:none}
+      .boundary{fill:#fbfdff;stroke:#1b6a84;stroke-width:3}
+      .usecase{fill:#f8fbfd;stroke:#1b6a84;stroke-width:2.5}
+      .external{fill:#fff8f3;stroke:#e56b2e;stroke-width:2.5}
+      .db{fill:#f4edf8;stroke:#9b62a8;stroke-width:2.5}
+      .line{stroke:#333;stroke-width:2.2;fill:none}
+      .dash{stroke:#555;stroke-width:2;stroke-dasharray:7 7;fill:none}
+      .note{font:14px Arial,sans-serif;fill:#444;text-anchor:middle}
+    </style>
+  </defs>
+  <rect width="1600" height="1050" fill="#ffffff"/>
+  <text x="60" y="70" class="title">Use Case Diagram - F1 Telemetry Dashboard</text>
+
+  <rect x="315" y="120" width="1030" height="850" rx="8" class="boundary"/>
+  <text x="830" y="158" class="label">F1 Telemetry Dashboard</text>
+
+  <circle cx="145" cy="335" r="28" class="actor"/>
+  <path d="M145 363 L145 465 M95 405 L195 405 M145 465 L95 555 M145 465 L195 555" class="actor"/>
+  <text x="145" y="595" class="label">Dashboard User</text>
+
+  <circle cx="1465" cy="340" r="28" class="actor"/>
+  <path d="M1465 368 L1465 470 M1415 410 L1515 410 M1465 470 L1415 560 M1465 470 L1515 560" class="actor"/>
+  <text x="1465" y="600" class="label">FastF1 API</text>
+
+  <rect x="1390" y="720" width="150" height="92" rx="12" class="db"/>
+  <path d="M1390 742 C1390 712 1540 712 1540 742 C1540 772 1390 772 1390 742" class="db"/>
+  <text x="1465" y="780" class="label">Local SQLite</text>
+  <text x="1465" y="805" class="label">DB</text>
+
+  <ellipse cx="510" cy="245" rx="130" ry="52" class="usecase"/>
+  <text x="510" y="240" class="label">Register / Login</text>
+  <text x="510" y="265" class="small">user account access</text>
+
+  <ellipse cx="760" cy="245" rx="130" ry="52" class="usecase"/>
+  <text x="760" y="240" class="label">Validate</text>
+  <text x="760" y="265" class="label">Credentials</text>
+
+  <ellipse cx="515" cy="390" rx="145" ry="58" class="usecase"/>
+  <text x="515" y="382" class="label">Select Year, Event</text>
+  <text x="515" y="408" class="label">and Session</text>
+
+  <ellipse cx="790" cy="390" rx="145" ry="58" class="usecase"/>
+  <text x="790" y="382" class="label">Load Session</text>
+  <text x="790" y="408" class="label">Overview</text>
+
+  <ellipse cx="1070" cy="390" rx="125" ry="50" class="usecase"/>
+  <text x="1070" y="383" class="label">Check Stored</text>
+  <text x="1070" y="408" class="label">Session Data</text>
+
+  <ellipse cx="1085" cy="525" rx="135" ry="54" class="external"/>
+  <text x="1085" y="518" class="label">Fetch Session Data</text>
+  <text x="1085" y="543" class="label">from FastF1</text>
+
+  <ellipse cx="515" cy="565" rx="145" ry="58" class="usecase"/>
+  <text x="515" y="557" class="label">Select Drivers</text>
+  <text x="515" y="583" class="label">for Comparison</text>
+
+  <ellipse cx="790" cy="565" rx="145" ry="58" class="usecase"/>
+  <text x="790" y="557" class="label">Load Driver</text>
+  <text x="790" y="583" class="label">Telemetry</text>
+
+  <ellipse cx="1070" cy="665" rx="125" ry="50" class="usecase"/>
+  <text x="1070" y="658" class="label">Check Stored</text>
+  <text x="1070" y="683" class="label">Telemetry</text>
+
+  <ellipse cx="1085" cy="790" rx="135" ry="54" class="external"/>
+  <text x="1085" y="783" class="label">Fetch Telemetry</text>
+  <text x="1085" y="808" class="label">from FastF1</text>
+
+  <ellipse cx="515" cy="760" rx="145" ry="58" class="usecase"/>
+  <text x="515" y="752" class="label">Select Laps /</text>
+  <text x="515" y="778" class="label">Show All Laps</text>
+
+  <ellipse cx="790" cy="760" rx="145" ry="58" class="usecase"/>
+  <text x="790" y="752" class="label">View Charts and</text>
+  <text x="790" y="778" class="label">Track Maps</text>
+
+  <ellipse cx="790" cy="895" rx="155" ry="52" class="usecase"/>
+  <text x="790" y="888" class="label">Compare Track Points</text>
+  <text x="790" y="913" class="label">with Cross-Hover</text>
+
+  <path d="M205 405 L380 245" class="line"/>
+  <path d="M205 425 L370 390" class="line"/>
+  <path d="M205 460 L370 565" class="line"/>
+  <path d="M205 500 L370 760" class="line"/>
+  <path d="M205 535 L640 760" class="line"/>
+  <path d="M205 555 L635 895" class="line"/>
+
+  <line x1="640" y1="245" x2="630" y2="245" class="dash"/>
+  <text x="642" y="224" class="note">&lt;&lt;include&gt;&gt;</text>
+  <line x1="660" y1="390" x2="645" y2="390" class="dash"/>
+  <text x="652" y="367" class="note">&lt;&lt;include&gt;&gt;</text>
+  <line x1="935" y1="390" x2="945" y2="390" class="dash"/>
+  <text x="935" y="367" class="note">&lt;&lt;include&gt;&gt;</text>
+  <line x1="1028" y1="440" x2="1054" y2="475" class="dash"/>
+  <text x="1008" y="466" class="note">&lt;&lt;extend&gt;&gt; if missing</text>
+  <line x1="660" y1="565" x2="645" y2="565" class="dash"/>
+  <text x="652" y="542" class="note">&lt;&lt;include&gt;&gt;</text>
+  <line x1="916" y1="593" x2="970" y2="637" class="dash"/>
+  <text x="935" y="620" class="note">&lt;&lt;include&gt;&gt;</text>
+  <line x1="1075" y1="715" x2="1081" y2="736" class="dash"/>
+  <text x="1008" y="731" class="note">&lt;&lt;extend&gt;&gt; if missing</text>
+  <line x1="660" y1="760" x2="645" y2="760" class="dash"/>
+  <text x="652" y="737" class="note">&lt;&lt;include&gt;&gt;</text>
+  <line x1="790" y1="812" x2="790" y2="843" class="dash"/>
+  <text x="900" y="835" class="note">&lt;&lt;extend&gt;&gt;</text>
+
+  <path d="M1335 525 L1220 525" class="line"/>
+  <path d="M1335 790 L1220 790" class="line"/>
+  <path d="M1390 745 L1185 410" class="line"/>
+  <path d="M1390 765 L1188 665" class="line"/>
+  <path d="M1390 720 L875 245" class="line"/>
+</svg>

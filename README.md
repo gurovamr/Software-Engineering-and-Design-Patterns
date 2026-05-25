@@ -71,6 +71,7 @@ The application uses FastF1 data, stores loaded sessions in a local SQLite datab
 |   |-- visualization.py
 |   `-- ...
 |-- tests/               # Unit and layout tests
+|-- uml-diagrams/        # UML-Diagrams in .svg for description of the architecture (Class Diagram additionally in .png, as .svg does not render correctly)
 |-- environment.yml      # Conda environment definition
 |-- requirements-dev.txt # Development dependencies
 `-- README.md
